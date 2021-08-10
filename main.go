@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -14,6 +15,23 @@ func _main(args []string) error {
 		return errors.New("Need an argument, either a username or an organization name")
 	}
 
+	selector := args[1]
+
+	var repos []string
+	var orgErr error
+	var userErr error
+
+	repos, orgErr = getReposForOrg(selector)
+	if orgErr != nil {
+		repos, userErr = getReposForUser(selector)
+		if userErr != nil {
+			// TODO nicer error handling
+			return errors.New("oh no")
+		}
+	}
+
+	fmt.Printf("DBG %#v\n", repos)
+
 	// TODO determine if it's an org or a user
 
 	// TODO get all repos for either a user or an org
@@ -23,12 +41,24 @@ func _main(args []string) error {
 	// - fetch all workflows associated with an account (user or an org)
 	// - report on pass/fail of last few run
 
+	return nil
+}
+
+func getReposForOrg(selector string) ([]string, error) {
+	// TODO
+	return nil, errors.New("TODO")
+}
+
+func getReposForUser(selector string) ([]string, error) {
+	// TODO
+	repos := []string{"lolhi"}
+	return repos, nil
 }
 
 func main() {
 	err := _main(os.Args)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, err)
+		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
 
