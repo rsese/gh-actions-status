@@ -41,6 +41,8 @@ func _main(args []string) error {
 	// - fetch all workflows associated with an account (user or an org)
 	// - report on pass/fail of last few run
 
+	// gh api "/orgs/cli/repos" --jq ".[]|.full_name"
+
 	return nil
 }
 
