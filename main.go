@@ -33,12 +33,9 @@ func _main(args []string) error {
 
 	fmt.Printf("DBG %#v\n", repos)
 
-	// TODO determine if it's an org or a user
-
-	// TODO get all repos for either a user or an org
 	// TODO enumerate the repos
 	// TODO see if there are workflows associated with each one
-	// TODO
+	// TODO recognize if we're looking for the authenticated user, uses a different endpoint
 	// - fetch all workflows associated with an account (user or an org)
 	// - report on pass/fail of last few run
 
@@ -48,20 +45,19 @@ func _main(args []string) error {
 }
 
 func getReposForOrg(selector string) ([]string, error) {
-	stdout, _, err := gh("api", "orgs/"+selector+"/repos", "--jq", ".[] | .full_name")
+	s := fmt.Sprintf("orgs/%s/repos", selector)
 
-	if err != nil {
-		return nil, err
-	}
-
-	repos := strings.Split(stdout.String(), "\n")
-
-	return repos[0 : len(repos)-1], nil
+	return getRepos(s)
 }
 
 func getReposForUser(selector string) ([]string, error) {
-	// TODO
-	stdout, _, err := gh("api", "users/"+selector+"/repos", "--jq", ".[] | .full_name")
+	s := fmt.Sprintf("users/%s/repos", selector)
+
+	return getRepos(s)
+}
+
+func getRepos(path string) ([]string, error) {
+	stdout, _, err := gh("api", path, "--jq", ".[] | .full_name")
 
 	if err != nil {
 		return nil, err
