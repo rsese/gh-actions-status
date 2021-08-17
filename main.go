@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/cli/safeexec"
 )
@@ -48,7 +49,16 @@ func _main(args []string) error {
 
 func getReposForOrg(selector string) ([]string, error) {
 	// TODO
-	return nil, errors.New("TODO")
+	stdout, stderr, err := gh("api", "orgs/"+selector+"/repos", "--jq", ".[] | .full_name")
+
+	if err != nil {
+		fmt.Println("stderr", stderr.String())
+		return nil, errors.New("No repos for organization: " + selector)
+	}
+
+	repos := strings.Split(stdout.String(), "\n")
+
+	return repos[0 : len(repos)-1], nil
 }
 
 func getReposForUser(selector string) ([]string, error) {
