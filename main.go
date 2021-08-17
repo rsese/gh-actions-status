@@ -48,12 +48,10 @@ func _main(args []string) error {
 }
 
 func getReposForOrg(selector string) ([]string, error) {
-	// TODO
-	stdout, stderr, err := gh("api", "orgs/"+selector+"/repos", "--jq", ".[] | .full_name")
+	stdout, _, err := gh("api", "orgs/"+selector+"/repos", "--jq", ".[] | .full_name")
 
 	if err != nil {
-		fmt.Println("stderr", stderr.String())
-		return nil, errors.New("No repos for organization: " + selector)
+		return nil, err
 	}
 
 	repos := strings.Split(stdout.String(), "\n")
@@ -63,8 +61,15 @@ func getReposForOrg(selector string) ([]string, error) {
 
 func getReposForUser(selector string) ([]string, error) {
 	// TODO
-	repos := []string{"lolhi"}
-	return repos, nil
+	stdout, _, err := gh("api", "users/"+selector+"/repos", "--jq", ".[] | .full_name")
+
+	if err != nil {
+		return nil, err
+	}
+
+	repos := strings.Split(stdout.String(), "\n")
+
+	return repos[0 : len(repos)-1], nil
 }
 
 func main() {
