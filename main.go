@@ -33,7 +33,16 @@ func _main(args []string) error {
 
 	fmt.Printf("DBG %#v\n", repos)
 
-	// TODO enumerate the repos
+	for _, r := range repos {
+		workflows, err := getWorkflows(r)
+
+		if err != nil {
+			return err
+		}
+
+		fmt.Println(workflows)
+	}
+
 	// TODO see if there are workflows associated with each one
 	// TODO recognize if we're looking for the authenticated user, uses a different endpoint
 	// - fetch all workflows associated with an account (user or an org)
@@ -66,6 +75,10 @@ func getRepos(path string) ([]string, error) {
 	repos := strings.Split(stdout.String(), "\n")
 
 	return repos[0 : len(repos)-1], nil
+}
+
+func getWorkflows(repo string) ([]string, error) {
+	return []string{}, nil
 }
 
 func main() {
