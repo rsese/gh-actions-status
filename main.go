@@ -7,9 +7,38 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/cli/safeexec"
 )
+
+type run struct {
+	Finished   time.Time
+	Elapsed    time.Duration
+	Status     string
+	Conclusion string
+}
+
+type workflow struct {
+	Name string
+	Run  []run
+}
+
+func (w *workflow) OverallHealth() string {
+	// TODO enum for green yellow red
+	return "passing"
+}
+
+func (w *workflow) AverageElapsed() time.Duration {
+	// TODO
+	d, _ := time.ParseDuration("1s")
+	return d
+}
+
+type repositoryData struct {
+	Name      string
+	Workflows []*workflow
+}
 
 func _main(args []string) error {
 	if len(args) < 2 {
@@ -33,25 +62,26 @@ func _main(args []string) error {
 
 	fmt.Printf("DBG %#v\n", repos)
 
-	for _, r := range repos {
-		workflows, err := getWorkflows(r)
+	data := []repositoryData{}
 
+	for _, r := range repos {
+
+		workflows, err := getWorkflows(r)
 		if err != nil {
 			return err
 		}
 
-		if r == "cli/cli" {
-			continue
+		repoData := repositoryData{
+			Name:      r,
+			Workflows: workflows,
 		}
-		if len(workflows) > 0 {
-			fmt.Printf("DBG %s has %d workflows\n", r, len(workflows))
-			fmt.Printf("DBG %v\n", workflows)
-		}
+
+		data = append(data, repoData)
 	}
 
-	// TODO see if there are workflows associated with each one
-	// - fetch all workflows associated with an account (user or an org)
-	// - report on pass/fail of last few run
+	fmt.Printf("DBG %#v\n", data)
+
+	// TODO report on pass/fail of last few run
 	// TODO recognize if we're looking for the authenticated user, uses a different endpoint
 
 	// gh api "/orgs/cli/repos" --jq ".[]|.full_name"
@@ -80,20 +110,32 @@ func getRepos(path string) ([]string, error) {
 
 	repos := strings.Split(stdout.String(), "\n")
 
+	// TODO filter list and remove ""
 	return repos[0 : len(repos)-1], nil
 }
 
-func getWorkflows(repo string) ([]string, error) {
+func getWorkflows(repo string) ([]*workflow, error) {
 	s := fmt.Sprintf("repos/%s/actions/workflows", repo)
-	stdout, _, err := gh("api", s, "--jq", ".workflows | .[] .url")
 
+	stdout, _, err := gh("api", s, "--jq", ".workflows | .[] .url")
 	if err != nil {
 		return nil, err
 	}
 
 	workflows := strings.Split(stdout.String(), "\n")
 
-	return workflows[0 : len(workflows)-1], nil
+	out := []*workflow{}
+	for _, w := range workflows {
+		if w == "" {
+			continue
+		}
+		// TODO actually get run info
+		out = append(out, &workflow{
+			Name: w,
+		})
+	}
+
+	return out, nil
 }
 
 func main() {
@@ -102,7 +144,6 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
-
 }
 
 // gh shells out to gh, returning STDOUT/STDERR and any error
