@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -117,21 +118,30 @@ func getRepos(path string) ([]string, error) {
 func getWorkflows(repo string) ([]*workflow, error) {
 	s := fmt.Sprintf("repos/%s/actions/workflows", repo)
 
-	stdout, _, err := gh("api", s, "--jq", ".workflows | .[] .url")
+	stdout, _, err := gh("api", s, "--jq", ".workflows")
 	if err != nil {
 		return nil, err
 	}
 
-	workflows := strings.Split(stdout.String(), "\n")
+	type payload struct {
+		State string
+		Name  string
+	}
+
+	p := []payload{}
+	err = json.Unmarshal(stdout.Bytes(), &p)
+	if err != nil {
+		return nil, err
+	}
 
 	out := []*workflow{}
-	for _, w := range workflows {
-		if w == "" {
+	for _, w := range p {
+		if strings.HasPrefix(w.State, "disabled") {
 			continue
 		}
 		// TODO actually get run info
 		out = append(out, &workflow{
-			Name: w,
+			Name: w.Name,
 		})
 	}
 
