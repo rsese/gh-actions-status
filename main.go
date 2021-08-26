@@ -96,8 +96,6 @@ func getWorkflows(repo string) ([]string, error) {
 	return workflows[0 : len(workflows)-1], nil
 }
 
-}
-
 func main() {
 	err := _main(os.Args)
 	if err != nil {
