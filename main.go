@@ -40,13 +40,19 @@ func _main(args []string) error {
 			return err
 		}
 
-		fmt.Println(workflows)
+		if r == "cli/cli" {
+			continue
+		}
+		if len(workflows) > 0 {
+			fmt.Printf("DBG %s has %d workflows\n", r, len(workflows))
+			fmt.Printf("DBG %v\n", workflows)
+		}
 	}
 
 	// TODO see if there are workflows associated with each one
-	// TODO recognize if we're looking for the authenticated user, uses a different endpoint
 	// - fetch all workflows associated with an account (user or an org)
 	// - report on pass/fail of last few run
+	// TODO recognize if we're looking for the authenticated user, uses a different endpoint
 
 	// gh api "/orgs/cli/repos" --jq ".[]|.full_name"
 
@@ -78,7 +84,18 @@ func getRepos(path string) ([]string, error) {
 }
 
 func getWorkflows(repo string) ([]string, error) {
-	return []string{}, nil
+	s := fmt.Sprintf("repos/%s/actions/workflows", repo)
+	stdout, _, err := gh("api", s, "--jq", ".workflows | .[] .url")
+
+	if err != nil {
+		return nil, err
+	}
+
+	workflows := strings.Split(stdout.String(), "\n")
+
+	return workflows[0 : len(workflows)-1], nil
+}
+
 }
 
 func main() {
