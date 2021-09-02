@@ -22,7 +22,7 @@ type run struct {
 
 type workflow struct {
 	Name string
-	Run  []run
+	Runs []run
 }
 
 func (w *workflow) OverallHealth() string {
@@ -116,32 +116,63 @@ func getRepos(path string) ([]string, error) {
 }
 
 func getWorkflows(repo string) ([]*workflow, error) {
-	s := fmt.Sprintf("repos/%s/actions/workflows", repo)
+	workflowsPath := fmt.Sprintf("repos/%s/actions/workflows", repo)
 
-	stdout, _, err := gh("api", s, "--jq", ".workflows")
+	stdout, _, err := gh("api", workflowsPath, "--jq", ".workflows")
 	if err != nil {
 		return nil, err
 	}
 
-	type payload struct {
+	type workflowsPayload struct {
 		State string
 		Name  string
+		URL   string `json:"url"`
 	}
 
-	p := []payload{}
+	p := []workflowsPayload{}
 	err = json.Unmarshal(stdout.Bytes(), &p)
 	if err != nil {
 		return nil, err
 	}
 
 	out := []*workflow{}
+
+	type runPayload struct {
+		CreatedAt  time.Time `json:"created_at"`
+		UpdatedAt  time.Time `json:"updated_at"`
+		Status     string
+		Conclusion string
+	}
+
 	for _, w := range p {
 		if strings.HasPrefix(w.State, "disabled") {
 			continue
 		}
-		// TODO actually get run info
+
+		runsPath := fmt.Sprintf("%s/runs", w.URL)
+		stdout, _, err = gh("api", runsPath, "--jq", ".workflow_runs")
+		rs := []runPayload{}
+		err = json.Unmarshal(stdout.Bytes(), &rs)
+		if err != nil {
+			return nil, err
+		}
+
+		runs := []run{}
+
+		for _, r := range rs {
+			rr := run{Status: r.Status, Conclusion: r.Conclusion}
+
+			if r.Status == "completed" {
+				rr.Finished = r.UpdatedAt
+				rr.Elapsed = r.UpdatedAt.Sub(r.CreatedAt)
+			}
+
+			runs = append(runs, rr)
+		}
+
 		out = append(out, &workflow{
 			Name: w.Name,
+			Runs: runs,
 		})
 	}
 
