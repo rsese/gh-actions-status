@@ -1,0 +1,23 @@
+Actions Health Dashboard as of 9/1/2021 for cli organization
+
+Total billable minutes: 1000
+98% completed this month
+97% passed this month
+
+Repo: cli
+99% completed this month
+98% passed this month
+
+Workflow one               Workflow Two            Workflow Three
+Avg elapsed:   1min        Avg elapsed: 39sec      Avg Elapsed: 5min
+Runner health: ✓x✓✓✓✓✓✓
+Result:        x-✓✓✓✓✓✓
+
+Repo: oauth
+100% completed this month
+100% passed this month
+
+Workflow Four
+Avg elapsed:   1min
+Runner health: ✓✓✓✓✓✓
+Result:        ✓✓✓✓✓✓
