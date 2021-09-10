@@ -8,10 +8,32 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+	"text/template"
 	"time"
 
 	"github.com/cli/safeexec"
 )
+
+/*
+
+TODO idea: get billable minutes
+TODO idea: accept month as flag argument
+
+TODO bring in lipgloss to render stuff; for now, render a big list
+
+What is health to an IT admin?
+
+- Total billable minutes usage
+- Average run time doesn't get crazy big for workflows
+- Most workflow runs have a status of completed
+- Most recent completed failures
+
+What is health to an open source maintainer?
+
+- Most workflow runs have a status of completed
+- Consistent completed+failure
+
+*/
 
 type run struct {
 	Finished   time.Time
@@ -25,15 +47,45 @@ type workflow struct {
 	Runs []run
 }
 
-func (w *workflow) OverallHealth() string {
-	// TODO enum for green yellow red
-	return "passing"
+func (w *workflow) RenderRunnerHealth() string {
+	// TODO
+	return "✓✓✓✓✓"
+}
+
+func (w *workflow) RenderResults() string {
+	// TODO
+	return "✓✓✓✓✓"
 }
 
 func (w *workflow) AverageElapsed() time.Duration {
 	// TODO
 	d, _ := time.ParseDuration("1s")
 	return d
+}
+
+func (w *workflow) RenderCard() string {
+	// Assumes that run data is time filtered already
+	tmpl, _ := template.New("workflowCard").Parse(
+		`{{ .Name }}
+Avg elapsed:   {{ .AvgElapsed }}
+Runner health: {{ .RunnerHealth }}
+Results:       {{ .Results }}`)
+
+	tmplData := struct {
+		Name         string
+		AvgElapsed   time.Duration
+		RunnerHealth string
+		Results      string
+	}{
+		Name:         w.Name,
+		AvgElapsed:   w.AverageElapsed(),
+		RunnerHealth: w.RenderRunnerHealth(),
+		Results:      w.RenderResults(),
+	}
+
+	buf := bytes.Buffer{}
+	_ = tmpl.Execute(&buf, tmplData)
+	return buf.String()
 }
 
 type repositoryData struct {
@@ -81,6 +133,12 @@ func _main(args []string) error {
 	}
 
 	fmt.Printf("DBG %#v\n", data)
+
+	for _, r := range data {
+		for _, w := range r.Workflows {
+			fmt.Println(w.RenderCard())
+		}
+	}
 
 	// TODO report on pass/fail of last few run
 	// TODO recognize if we're looking for the authenticated user, uses a different endpoint
