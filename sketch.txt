@@ -11,8 +11,7 @@ Repo: cli
 
 Workflow one               Workflow Two            Workflow Three
 Avg elapsed:   1min        Avg elapsed: 39sec      Avg Elapsed: 5min
-Runner health: ✓x✓✓✓✓✓✓
-Result:        x-✓✓✓✓✓✓
+Health:        x-✓✓✓✓✓✓
 
 Repo: oauth
 100% completed this month
@@ -20,5 +19,4 @@ Repo: oauth
 
 Workflow Four
 Avg elapsed:   1min
-Runner health: ✓✓✓✓✓✓
-Result:        ✓✓✓✓✓✓
+Health:        ✓✓✓✓✓✓
