@@ -14,6 +14,8 @@ import (
 	"github.com/cli/safeexec"
 )
 
+const defaultMaxRuns = 5
+
 /*
 
 TODO idea: get billable minutes
@@ -48,17 +50,61 @@ type workflow struct {
 }
 
 func (w *workflow) RenderRunnerHealth() string {
-	// TODO
-	return "✓✓✓✓✓"
+	var health string
+
+	for i, r := range w.Runs {
+		if i > defaultMaxRuns {
+			break
+		}
+
+		if r.Status == "completed" {
+			health += "✓"
+		} else {
+			health += "x"
+		}
+	}
+
+	return health
 }
 
 func (w *workflow) RenderResults() string {
-	// TODO
-	return "✓✓✓✓✓"
+	var results string
+
+	for i, r := range w.Runs {
+		if i > defaultMaxRuns {
+			break
+		}
+
+		if r.Status != "completed" {
+			results += "-"
+			continue
+		}
+
+		switch r.Conclusion {
+		case "success":
+			results += "✓"
+		case "skipped", "cancelled", "neutral":
+			results += "-"
+		default:
+			results += "x"
+		}
+	}
+
+	return results
 }
 
 func (w *workflow) AverageElapsed() time.Duration {
-	// TODO
+	// var total int
+
+	// for i, r := range w.Runs {
+	// 	if i < defaultMaxRuns {
+	// 		total += int(r.Elapsed)
+	// 		// fmt.Printf("run elapsed time: %#v", r.Elapsed)
+	// 		// fmt.Printf("total time: %#v", total)
+	// 	} else {
+	// 		break
+	// 	}
+	// }
 	d, _ := time.ParseDuration("1s")
 	return d
 }
