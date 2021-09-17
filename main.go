@@ -76,18 +76,22 @@ func (w *workflow) RenderHealth() string {
 }
 
 func (w *workflow) AverageElapsed() time.Duration {
-	// var total int
+	var totalTime int
+	var averageTime int
 
-	// for i, r := range w.Runs {
-	// 	if i < defaultMaxRuns {
-	// 		total += int(r.Elapsed)
-	// 		// fmt.Printf("run elapsed time: %#v", r.Elapsed)
-	// 		// fmt.Printf("total time: %#v", total)
-	// 	} else {
-	// 		break
-	// 	}
-	// }
-	d, _ := time.ParseDuration("1s")
+	for i, r := range w.Runs {
+		if i > defaultMaxRuns {
+			break
+		}
+
+		totalTime += int(r.Elapsed.Seconds())
+	}
+
+	averageTime = totalTime / defaultMaxRuns
+
+	s := fmt.Sprintf("%ds", averageTime)
+	d, _ := time.ParseDuration(s)
+
 	return d
 }
 
