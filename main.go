@@ -49,25 +49,7 @@ type workflow struct {
 	Runs []run
 }
 
-func (w *workflow) RenderRunnerHealth() string {
-	var health string
-
-	for i, r := range w.Runs {
-		if i > defaultMaxRuns {
-			break
-		}
-
-		if r.Status == "completed" {
-			health += "✓"
-		} else {
-			health += "x"
-		}
-	}
-
-	return health
-}
-
-func (w *workflow) RenderResults() string {
+func (w *workflow) RenderHealth() string {
 	var results string
 
 	for i, r := range w.Runs {
@@ -114,19 +96,16 @@ func (w *workflow) RenderCard() string {
 	tmpl, _ := template.New("workflowCard").Parse(
 		`{{ .Name }}
 Avg elapsed:   {{ .AvgElapsed }}
-Runner health: {{ .RunnerHealth }}
-Results:       {{ .Results }}`)
+Health: {{ .Health }}`)
 
 	tmplData := struct {
-		Name         string
-		AvgElapsed   time.Duration
-		RunnerHealth string
-		Results      string
+		Name       string
+		AvgElapsed time.Duration
+		Health     string
 	}{
-		Name:         w.Name,
-		AvgElapsed:   w.AverageElapsed(),
-		RunnerHealth: w.RenderRunnerHealth(),
-		Results:      w.RenderResults(),
+		Name:       w.Name,
+		AvgElapsed: w.AverageElapsed(),
+		Health:     w.RenderHealth(),
 	}
 
 	buf := bytes.Buffer{}
