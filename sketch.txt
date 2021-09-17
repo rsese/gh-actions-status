@@ -7,6 +7,7 @@ Total billable minutes: 1000
 Repo: cli
 99% completed this month
 98% passed this month
+5 runs in progress
 
 Workflow one               Workflow Two            Workflow Three
 Avg elapsed:   1min        Avg elapsed: 39sec      Avg Elapsed: 5min
