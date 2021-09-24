@@ -17,24 +17,9 @@ import (
 const defaultMaxRuns = 5
 
 /*
-
-TODO idea: get billable minutes
-TODO idea: accept month as flag argument
-
+TODO get billable minutes
+TODO accept month as flag argument
 TODO bring in lipgloss to render stuff; for now, render a big list
-
-What is health to an IT admin?
-
-- Total billable minutes usage
-- Average run time doesn't get crazy big for workflows
-- Most workflow runs have a status of completed
-- Most recent completed failures
-
-What is health to an open source maintainer?
-
-- Most workflow runs have a status of completed
-- Consistent completed+failure
-
 */
 
 type run struct {
@@ -142,8 +127,6 @@ func _main(args []string) error {
 		}
 	}
 
-	fmt.Printf("DBG %#v\n", repos)
-
 	data := []repositoryData{}
 
 	for _, r := range repos {
@@ -160,8 +143,6 @@ func _main(args []string) error {
 
 		data = append(data, repoData)
 	}
-
-	fmt.Printf("DBG %#v\n", data)
 
 	for _, r := range data {
 		for _, w := range r.Workflows {
