@@ -127,6 +127,8 @@ func _main(args []string) error {
 		}
 	}
 
+	fmt.Printf("GitHub Actions dashboard for %s for the month of %s\n", selector, "TODO")
+
 	data := []repositoryData{}
 
 	for _, r := range repos {
@@ -147,10 +149,9 @@ func _main(args []string) error {
 		if len(r.Workflows) == 0 {
 			continue
 		}
-		// TODO print repo header
-		// TODO compute repo stats
 		fmt.Println()
 		fmt.Println(r.Name)
+		// TODO compute and print repo stats
 		for _, w := range r.Workflows {
 			fmt.Println(w.RenderCard())
 		}
