@@ -177,7 +177,7 @@ func getReposForUser(selector string) ([]string, error) {
 }
 
 func getRepos(path string) ([]string, error) {
-	stdout, _, err := gh("api", path, "--jq", ".[] | .full_name")
+	stdout, _, err := gh("api", "--cache", "5m", path, "--jq", ".[] | .full_name")
 
 	if err != nil {
 		return nil, err
@@ -192,7 +192,7 @@ func getRepos(path string) ([]string, error) {
 func getWorkflows(repo string) ([]*workflow, error) {
 	workflowsPath := fmt.Sprintf("repos/%s/actions/workflows", repo)
 
-	stdout, _, err := gh("api", workflowsPath, "--jq", ".workflows")
+	stdout, _, err := gh("api", "--cache", "5m", workflowsPath, "--jq", ".workflows")
 	if err != nil {
 		return nil, err
 	}
@@ -224,7 +224,7 @@ func getWorkflows(repo string) ([]*workflow, error) {
 		}
 
 		runsPath := fmt.Sprintf("%s/runs", w.URL)
-		stdout, _, err = gh("api", runsPath, "--jq", ".workflow_runs")
+		stdout, _, err = gh("api", "--cache", "5m", runsPath, "--jq", ".workflow_runs")
 		rs := []runPayload{}
 		err = json.Unmarshal(stdout.Bytes(), &rs)
 		if err != nil {
