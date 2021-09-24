@@ -11,6 +11,7 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/charmbracelet/lipgloss"
 	"github.com/cli/safeexec"
 )
 
@@ -127,6 +128,17 @@ func _main(args []string) error {
 		}
 	}
 
+	// TODO make use of lipgloss
+
+	// TODO make dynamic
+	columnWidth := 30
+	//width := 100
+
+	// TODO card style
+	cardStyle := lipgloss.NewStyle().
+		Align(lipgloss.Left).
+		Width(columnWidth)
+
 	fmt.Printf("GitHub Actions dashboard for %s for the month of %s\n", selector, "TODO")
 
 	data := []repositoryData{}
@@ -152,12 +164,19 @@ func _main(args []string) error {
 		fmt.Println()
 		fmt.Println(r.Name)
 		// TODO compute and print repo stats
+		renderedCards := []string{}
 		for _, w := range r.Workflows {
-			fmt.Println(w.RenderCard())
+			renderedCards = append(renderedCards, cardStyle.Render(w.RenderCard()))
 		}
+		fmt.Println(lipgloss.JoinHorizontal(lipgloss.Top, renderedCards...))
 	}
 
-	// TODO report on pass/fail of last few run
+	// TODO lipgloss tasks:
+	// - border around cards
+	// - default to max four columns
+	// - snug up any margin/padding
+	// - add embellishments like color/bolding
+
 	// TODO recognize if we're looking for the authenticated user, uses a different endpoint
 
 	// gh api "/orgs/cli/repos" --jq ".[]|.full_name"
