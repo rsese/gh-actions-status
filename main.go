@@ -130,7 +130,6 @@ func _main(args []string) error {
 	data := []repositoryData{}
 
 	for _, r := range repos {
-
 		workflows, err := getWorkflows(r)
 		if err != nil {
 			return err
@@ -145,6 +144,13 @@ func _main(args []string) error {
 	}
 
 	for _, r := range data {
+		if len(r.Workflows) == 0 {
+			continue
+		}
+		// TODO print repo header
+		// TODO compute repo stats
+		fmt.Println()
+		fmt.Println(r.Name)
 		for _, w := range r.Workflows {
 			fmt.Println(w.RenderCard())
 		}
