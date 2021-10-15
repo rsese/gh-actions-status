@@ -31,8 +31,9 @@ type run struct {
 }
 
 type workflow struct {
-	Name string
-	Runs []run
+	Name      string
+	Runs      []run
+	Billables int
 }
 
 func (w *workflow) RenderHealth() string {
@@ -104,7 +105,8 @@ Health: {{ .Health }}`)
 }
 
 type repositoryData struct {
-	Name      string
+	Name      string `json:"full_name"`
+	Private   bool
 	Workflows []*workflow
 }
 
@@ -115,7 +117,7 @@ func _main(args []string) error {
 
 	selector := args[1]
 
-	var repos []string
+	var repos []repositoryData
 	var orgErr error
 	var userErr error
 
@@ -141,23 +143,23 @@ func _main(args []string) error {
 
 	fmt.Printf("GitHub Actions dashboard for %s for the month of %s\n", selector, "TODO")
 
-	data := []repositoryData{}
+	totalBillableMinutes := 0
 
 	for _, r := range repos {
-		workflows, err := getWorkflows(r)
+		workflows, err := getWorkflows(r.Name)
 		if err != nil {
 			return err
 		}
 
-		repoData := repositoryData{
-			Name:      r,
-			Workflows: workflows,
-		}
+		r.Workflows = workflows
 
 		data = append(data, repoData)
 	}
 
-	for _, r := range data {
+	fmt.Printf("Total billable minutes: %d milliseconds", totalBillableMinutes)
+	fmt.Printf("\n")
+
+	for _, r := range repos {
 		if len(r.Workflows) == 0 {
 			continue
 		}
@@ -184,29 +186,35 @@ func _main(args []string) error {
 	return nil
 }
 
-func getReposForOrg(selector string) ([]string, error) {
+func getReposForOrg(selector string) ([]repositoryData, error) {
 	s := fmt.Sprintf("orgs/%s/repos", selector)
 
 	return getRepos(s)
 }
 
-func getReposForUser(selector string) ([]string, error) {
+func getReposForUser(selector string) ([]repositoryData, error) {
 	s := fmt.Sprintf("users/%s/repos", selector)
 
 	return getRepos(s)
 }
 
-func getRepos(path string) ([]string, error) {
-	stdout, _, err := gh("api", "--cache", "5m", path, "--jq", ".[] | .full_name")
+func getRepos(path string) ([]repositoryData, error) {
+	stdout, _, err := gh("api", "--cache", "5m", path)
 
 	if err != nil {
 		return nil, err
 	}
 
-	repos := strings.Split(stdout.String(), "\n")
+	repoData := []repositoryData{}
+	err = json.Unmarshal(stdout.Bytes(), &repoData)
 
-	// TODO filter list and remove ""
-	return repos[0 : len(repos)-1], nil
+	fmt.Printf("%+v", repoData)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return repoData, nil
 }
 
 func getWorkflows(repo string) ([]*workflow, error) {
