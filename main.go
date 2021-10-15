@@ -117,7 +117,7 @@ func _main(args []string) error {
 
 	selector := args[1]
 
-	var repos []repositoryData
+	var repos []*repositoryData
 	var orgErr error
 	var userErr error
 
@@ -186,26 +186,26 @@ func _main(args []string) error {
 	return nil
 }
 
-func getReposForOrg(selector string) ([]repositoryData, error) {
+func getReposForOrg(selector string) ([]*repositoryData, error) {
 	s := fmt.Sprintf("orgs/%s/repos", selector)
 
 	return getRepos(s)
 }
 
-func getReposForUser(selector string) ([]repositoryData, error) {
+func getReposForUser(selector string) ([]*repositoryData, error) {
 	s := fmt.Sprintf("users/%s/repos", selector)
 
 	return getRepos(s)
 }
 
-func getRepos(path string) ([]repositoryData, error) {
+func getRepos(path string) ([]*repositoryData, error) {
 	stdout, _, err := gh("api", "--cache", "5m", path)
 
 	if err != nil {
 		return nil, err
 	}
 
-	repoData := []repositoryData{}
+	repoData := []*repositoryData{}
 	err = json.Unmarshal(stdout.Bytes(), &repoData)
 
 	fmt.Printf("%+v", repoData)
