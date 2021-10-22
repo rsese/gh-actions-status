@@ -18,7 +18,6 @@ import (
 const defaultMaxRuns = 5
 
 /*
-TODO get billable minutes
 TODO accept month as flag argument
 TODO bring in lipgloss to render stuff; for now, render a big list
 */
@@ -151,6 +150,13 @@ func _main(args []string) error {
 	// TODO make dynamic
 	columnWidth := 30
 	//width := 100
+
+	// TODO
+	// plan for fixing horizontal flow
+	// - truncate workflow names to a constant length
+	// - base a columnWidth value on that length
+	// - decide how big a row should be based on columnWidth + terminal size
+	// - create lists of card rows instead of one big rendered card list
 
 	// TODO card style
 	cardStyle := lipgloss.NewStyle().
