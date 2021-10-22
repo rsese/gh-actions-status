@@ -86,17 +86,23 @@ func (w *workflow) RenderCard() string {
 	// Assumes that run data is time filtered already
 	tmpl, _ := template.New("workflowCard").Parse(
 		`{{ .Name }}
-Avg elapsed:   {{ .AvgElapsed }}
-Health: {{ .Health }}`)
+Health: {{ .Health }}
+Avg elapsed: {{ .AvgElapsed }}
+{{- if .BillableMs }}
+Billable time: {{call .PrettyMS .BillableMs }}{{end}}`)
 
 	tmplData := struct {
 		Name       string
 		AvgElapsed time.Duration
 		Health     string
+		BillableMs int
+		PrettyMS   func(int) string
 	}{
 		Name:       w.Name,
 		AvgElapsed: w.AverageElapsed(),
 		Health:     w.RenderHealth(),
+		BillableMs: w.BillableMs,
+		PrettyMS:   prettyMS,
 	}
 
 	buf := bytes.Buffer{}
@@ -108,6 +114,16 @@ type repositoryData struct {
 	Name      string `json:"full_name"`
 	Private   bool
 	Workflows []*workflow
+}
+
+func prettyMS(ms int) string {
+	if ms == 60000 {
+		return fmt.Sprintf("1m")
+	}
+	if ms < 60000 {
+		return fmt.Sprintf("%dms", ms)
+	}
+	return fmt.Sprintf("%.2fm", float32(ms)/60000)
 }
 
 func _main(args []string) error {
@@ -158,15 +174,7 @@ func _main(args []string) error {
 		}
 	}
 
-	if totalBillableMs == 60000 {
-		fmt.Printf("Total billable minutes: 1 minute")
-	} else if totalBillableMs < 60000 {
-		fmt.Printf("Total billable minutes: %d milliseconds", totalBillableMs)
-	} else {
-		fmt.Printf("Total billable minutes: %f minutes", float32(totalBillableMs)/60000)
-	}
-
-	fmt.Printf("\n")
+	fmt.Printf("Total billable time: %s\n", prettyMS(totalBillableMs))
 
 	for _, r := range repos {
 		if len(r.Workflows) == 0 {
