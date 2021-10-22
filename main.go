@@ -31,9 +31,9 @@ type run struct {
 }
 
 type workflow struct {
-	Name      string
-	Runs      []run
-	Billables int
+	Name       string
+	Runs       []run
+	BillableMs int
 }
 
 func (w *workflow) RenderHealth() string {
@@ -143,20 +143,29 @@ func _main(args []string) error {
 
 	fmt.Printf("GitHub Actions dashboard for %s for the month of %s\n", selector, "TODO")
 
-	totalBillableMinutes := 0
+	totalBillableMs := 0
 
 	for _, r := range repos {
-		workflows, err := getWorkflows(r.Name)
+		workflows, err := getWorkflows(*r)
 		if err != nil {
 			return err
 		}
 
 		r.Workflows = workflows
 
-		data = append(data, repoData)
+		for _, w := range workflows {
+			totalBillableMs += w.BillableMs
+		}
 	}
 
-	fmt.Printf("Total billable minutes: %d milliseconds", totalBillableMinutes)
+	if totalBillableMs == 60000 {
+		fmt.Printf("Total billable minutes: 1 minute")
+	} else if totalBillableMs < 60000 {
+		fmt.Printf("Total billable minutes: %d milliseconds", totalBillableMs)
+	} else {
+		fmt.Printf("Total billable minutes: %f minutes", float32(totalBillableMs)/60000)
+	}
+
 	fmt.Printf("\n")
 
 	for _, r := range repos {
@@ -208,8 +217,6 @@ func getRepos(path string) ([]*repositoryData, error) {
 	repoData := []*repositoryData{}
 	err = json.Unmarshal(stdout.Bytes(), &repoData)
 
-	fmt.Printf("%+v", repoData)
-
 	if err != nil {
 		return nil, err
 	}
@@ -217,8 +224,8 @@ func getRepos(path string) ([]*repositoryData, error) {
 	return repoData, nil
 }
 
-func getWorkflows(repo string) ([]*workflow, error) {
-	workflowsPath := fmt.Sprintf("repos/%s/actions/workflows", repo)
+func getWorkflows(repoData repositoryData) ([]*workflow, error) {
+	workflowsPath := fmt.Sprintf("repos/%s/actions/workflows", repoData.Name)
 
 	stdout, _, err := gh("api", "--cache", "5m", workflowsPath, "--jq", ".workflows")
 	if err != nil {
@@ -226,6 +233,7 @@ func getWorkflows(repo string) ([]*workflow, error) {
 	}
 
 	type workflowsPayload struct {
+		Id    int `json:"id"`
 		State string
 		Name  string
 		URL   string `json:"url"`
@@ -245,6 +253,20 @@ func getWorkflows(repo string) ([]*workflow, error) {
 		Status     string
 		Conclusion string
 	}
+
+	type billablePayload struct {
+		MacOs struct {
+			TotalMs int `json:"total_ms"`
+		} `json:"MACOS"`
+		Windows struct {
+			TotalMs int `json:"total_ms"`
+		} `json:"WINDOWS"`
+		Ubuntu struct {
+			TotalMs int `json:"total_ms"`
+		} `json:"UBUNTU"`
+	}
+
+	var totalMs int
 
 	for _, w := range p {
 		if strings.HasPrefix(w.State, "disabled") {
@@ -272,9 +294,23 @@ func getWorkflows(repo string) ([]*workflow, error) {
 			runs = append(runs, rr)
 		}
 
+		billablePath := fmt.Sprintf("%s/timing", w.URL)
+		stdout, _, err = gh("api", "--cache", "5m", billablePath, "--jq", ".billable")
+
+		if repoData.Private {
+			bp := billablePayload{}
+			err = json.Unmarshal(stdout.Bytes(), &bp)
+			if err != nil {
+				return nil, err
+			}
+
+			totalMs += bp.MacOs.TotalMs + bp.Windows.TotalMs + bp.Ubuntu.TotalMs
+		}
+
 		out = append(out, &workflow{
-			Name: w.Name,
-			Runs: runs,
+			Name:       w.Name,
+			Runs:       runs,
+			BillableMs: totalMs,
 		})
 	}
 
