@@ -16,6 +16,8 @@ import (
 )
 
 const defaultMaxRuns = 5
+const defaultWorkflowNameLength = 17
+const defaultApiCacheTime = "60m"
 
 /*
 TODO accept month as flag argument
@@ -222,7 +224,7 @@ func getReposForUser(selector string) ([]*repositoryData, error) {
 }
 
 func getRepos(path string) ([]*repositoryData, error) {
-	stdout, _, err := gh("api", "--cache", "5m", path)
+	stdout, _, err := gh("api", "--cache", defaultApiCacheTime, path)
 
 	if err != nil {
 		return nil, err
@@ -241,7 +243,7 @@ func getRepos(path string) ([]*repositoryData, error) {
 func getWorkflows(repoData repositoryData) ([]*workflow, error) {
 	workflowsPath := fmt.Sprintf("repos/%s/actions/workflows", repoData.Name)
 
-	stdout, _, err := gh("api", "--cache", "5m", workflowsPath, "--jq", ".workflows")
+	stdout, _, err := gh("api", "--cache", defaultApiCacheTime, workflowsPath, "--jq", ".workflows")
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +290,7 @@ func getWorkflows(repoData repositoryData) ([]*workflow, error) {
 		}
 
 		runsPath := fmt.Sprintf("%s/runs", w.URL)
-		stdout, _, err = gh("api", "--cache", "5m", runsPath, "--jq", ".workflow_runs")
+		stdout, _, err = gh("api", "--cache", defaultApiCacheTime, runsPath, "--jq", ".workflow_runs")
 		rs := []runPayload{}
 		err = json.Unmarshal(stdout.Bytes(), &rs)
 		if err != nil {
@@ -309,7 +311,7 @@ func getWorkflows(repoData repositoryData) ([]*workflow, error) {
 		}
 
 		billablePath := fmt.Sprintf("%s/timing", w.URL)
-		stdout, _, err = gh("api", "--cache", "5m", billablePath, "--jq", ".billable")
+		stdout, _, err = gh("api", "--cache", defaultApiCacheTime, billablePath, "--jq", ".billable")
 
 		if repoData.Private {
 			bp := billablePayload{}
