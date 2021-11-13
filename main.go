@@ -11,6 +11,8 @@ import (
 	"text/template"
 	"time"
 
+	"golang.org/x/term"
+
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cli/safeexec"
 )
@@ -81,6 +83,16 @@ func (w *workflow) AverageElapsed() time.Duration {
 	d, _ := time.ParseDuration(s)
 
 	return d
+}
+
+func getTerminalWidth() int {
+	width, _, err := term.GetSize(int(os.Stdout.Fd()))
+
+	if err != nil {
+		panic(err.Error())
+	}
+
+	return width
 }
 
 func (w *workflow) RenderCard() string {
