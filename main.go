@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"os/exec"
 	"strings"
@@ -200,12 +201,22 @@ func _main(args []string) error {
 		}
 		fmt.Println()
 		fmt.Println(r.Name)
-		// TODO compute and print repo stats
-		renderedCards := []string{}
+
+		totalRows := int(math.Ceil(float64(len(r.Workflows)) / float64(cardsPerRow)))
+		cardRows := make([][]string, totalRows)
+		rowIndex := 0
+
 		for _, w := range r.Workflows {
-			renderedCards = append(renderedCards, cardStyle.Render(w.RenderCard()))
+			if len(cardRows[rowIndex]) == cardsPerRow {
+				rowIndex++
+			}
+
+			cardRows[rowIndex] = append(cardRows[rowIndex], cardStyle.Render(w.RenderCard()))
 		}
-		fmt.Println(lipgloss.JoinHorizontal(lipgloss.Top, renderedCards...))
+
+		for _, row := range cardRows {
+			fmt.Println(lipgloss.JoinHorizontal(lipgloss.Top, row...))
+		}
 	}
 
 	// TODO lipgloss tasks:
