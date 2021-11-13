@@ -195,6 +195,11 @@ func _main(args []string) error {
 		}
 	}
 
+	// TODO
+	// * add link to repo Actions tab
+	// * add flag for time period (e.g pick a month or start/end date)
+	// * UI updates (icon colors, bold repo name, etc.)
+
 	fmt.Printf("Total billable time: %s\n", prettyMS(totalBillableMs))
 
 	for _, r := range repos {
