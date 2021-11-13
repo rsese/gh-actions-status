@@ -171,10 +171,12 @@ func _main(args []string) error {
 	columnWidth := defaultWorkflowNameLength + 3 // +3 for "..."
 	cardsPerRow := getTerminalWidth() / columnWidth
 
-	// TODO card style
 	cardStyle := lipgloss.NewStyle().
 		Align(lipgloss.Left).
-		Width(columnWidth)
+		Padding(1).
+		Width(columnWidth).
+		BorderStyle(lipgloss.DoubleBorder()).
+		BorderForeground(lipgloss.Color("63"))
 
 	fmt.Printf("GitHub Actions dashboard for %s for the month of %s\n", selector, "TODO")
 
