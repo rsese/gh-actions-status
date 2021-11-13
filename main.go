@@ -85,6 +85,14 @@ func (w *workflow) AverageElapsed() time.Duration {
 	return d
 }
 
+func truncateWorkflowName(name string, length int) string {
+	if len(name) > length {
+		return name[:length] + "..."
+	}
+
+	return name
+}
+
 func getTerminalWidth() int {
 	width, _, err := term.GetSize(int(os.Stdout.Fd()))
 
@@ -111,7 +119,7 @@ Billable time: {{call .PrettyMS .BillableMs }}{{end}}`)
 		BillableMs int
 		PrettyMS   func(int) string
 	}{
-		Name:       w.Name,
+		Name:       truncateWorkflowName(w.Name, defaultWorkflowNameLength),
 		AvgElapsed: w.AverageElapsed(),
 		Health:     w.RenderHealth(),
 		BillableMs: w.BillableMs,
@@ -159,18 +167,8 @@ func _main(args []string) error {
 		}
 	}
 
-	// TODO make use of lipgloss
-
-	// TODO make dynamic
-	columnWidth := 30
-	//width := 100
-
-	// TODO
-	// plan for fixing horizontal flow
-	// - truncate workflow names to a constant length
-	// - base a columnWidth value on that length
-	// - decide how big a row should be based on columnWidth + terminal size
-	// - create lists of card rows instead of one big rendered card list
+	columnWidth := defaultWorkflowNameLength + 3 // +3 for "..."
+	cardsPerRow := getTerminalWidth() / columnWidth
 
 	// TODO card style
 	cardStyle := lipgloss.NewStyle().
