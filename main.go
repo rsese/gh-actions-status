@@ -32,6 +32,10 @@ const defaultApiCacheTime = "60m"
 	// TODO recognize if we're looking for the authenticated user, uses a different endpoint
 	// - is this actually important?
 	// gh api "/orgs/cli/repos" --jq ".[]|.full_name"
+
+
+	// --last 90d
+
 */
 
 type run struct {
@@ -156,7 +160,12 @@ func prettyMS(ms int) string {
 }
 
 func _main() error {
+	defaultLast, _ := time.ParseDuration("30d")
 	repositories := flag.StringSliceP("repos", "r", []string{}, "One or more repository names from the provided org or user")
+	last := flag.DurationP("last", "l", defaultLast, "What period of time to cover. Default: 30d")
+
+	// TODO thread last all the way through to the run API calls; use it to filter the runs we fetch.
+	fmt.Printf("DBG %#v\n", last)
 
 	flag.Parse()
 
@@ -347,6 +356,11 @@ func getWorkflows(repoData repositoryData) ([]*workflow, error) {
 
 			runs = append(runs, rr)
 		}
+
+		// TODO
+		// - switch to getting timing per run
+		// - filter runs by selected time period
+		// - sum up the billable time per workflow
 
 		billablePath := fmt.Sprintf("%s/timing", w.URL)
 		stdout, _, err = gh("api", "--cache", defaultApiCacheTime, billablePath, "--jq", ".billable")
