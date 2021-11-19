@@ -160,8 +160,6 @@ func _main() error {
 
 	flag.Parse()
 
-	fmt.Printf("DBG %#v\n", repositories)
-
 	if len(flag.Args()) != 1 {
 		return errors.New("Need exactly one argument, either an organization or user name")
 	}
@@ -169,14 +167,31 @@ func _main() error {
 	selector := flag.Arg(0)
 
 	var repos []*repositoryData
-	var orgErr error
-	var userErr error
 
-	repos, orgErr = getReposForOrg(selector)
-	if orgErr != nil {
-		repos, userErr = getReposForUser(selector)
-		if userErr != nil {
-			return fmt.Errorf("could not find '%s': %w; %w", selector, orgErr, userErr)
+	if len(*repositories) > 0 {
+		var path string
+		var stdout bytes.Buffer
+		var err error
+		var data repositoryData
+		for _, repoName := range *repositories {
+			path = fmt.Sprintf("repos/%s/%s", selector, repoName)
+			if stdout, _, err = gh("api", "--cache", defaultApiCacheTime, path); err != nil {
+				return err
+			}
+			if err = json.Unmarshal(stdout.Bytes(), &data); err != nil {
+				return err
+			}
+			repos = append(repos, &data)
+		}
+	} else {
+		var orgErr error
+		var userErr error
+		repos, orgErr = getAllReposForOrg(selector)
+		if orgErr != nil {
+			repos, userErr = getAllReposForUser(selector)
+			if userErr != nil {
+				return fmt.Errorf("could not find '%s': %w; %w", selector, orgErr, userErr)
+			}
 		}
 	}
 
@@ -236,28 +251,26 @@ func _main() error {
 	return nil
 }
 
-func getReposForOrg(selector string) ([]*repositoryData, error) {
+func getAllReposForOrg(selector string) ([]*repositoryData, error) {
 	s := fmt.Sprintf("orgs/%s/repos", selector)
 
-	return getRepos(s)
+	return getAllRepos(s)
 }
 
-func getReposForUser(selector string) ([]*repositoryData, error) {
+func getAllReposForUser(selector string) ([]*repositoryData, error) {
 	s := fmt.Sprintf("users/%s/repos", selector)
 
-	return getRepos(s)
+	return getAllRepos(s)
 }
 
-func getRepos(path string) ([]*repositoryData, error) {
+func getAllRepos(path string) ([]*repositoryData, error) {
 	stdout, _, err := gh("api", "--cache", defaultApiCacheTime, path)
-
 	if err != nil {
 		return nil, err
 	}
 
 	repoData := []*repositoryData{}
 	err = json.Unmarshal(stdout.Bytes(), &repoData)
-
 	if err != nil {
 		return nil, err
 	}
