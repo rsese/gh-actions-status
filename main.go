@@ -16,6 +16,7 @@ import (
 
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cli/safeexec"
+	flag "github.com/spf13/pflag"
 )
 
 const defaultMaxRuns = 5
@@ -23,8 +24,14 @@ const defaultWorkflowNameLength = 17
 const defaultApiCacheTime = "60m"
 
 /*
-TODO accept month as flag argument
-TODO bring in lipgloss to render stuff; for now, render a big list
+	// TODO
+	// * add link to repo Actions tab
+	// * add flag for time period (e.g pick a month or start/end date)
+	// * UI updates (icon colors, bold repo name, etc.)
+
+	// TODO recognize if we're looking for the authenticated user, uses a different endpoint
+	// - is this actually important?
+	// gh api "/orgs/cli/repos" --jq ".[]|.full_name"
 */
 
 type run struct {
@@ -148,12 +155,18 @@ func prettyMS(ms int) string {
 	return fmt.Sprintf("%.2fm", float32(ms)/60000)
 }
 
-func _main(args []string) error {
-	if len(args) < 2 {
-		return errors.New("Need an argument, either a username or an organization name")
+func _main() error {
+	repositories := flag.StringSliceP("repos", "r", []string{}, "One or more repository names from the provided org or user")
+
+	flag.Parse()
+
+	fmt.Printf("DBG %#v\n", repositories)
+
+	if len(flag.Args()) != 1 {
+		return errors.New("Need exactly one argument, either an organization or user name")
 	}
 
-	selector := args[1]
+	selector := flag.Arg(0)
 
 	var repos []*repositoryData
 	var orgErr error
@@ -163,8 +176,7 @@ func _main(args []string) error {
 	if orgErr != nil {
 		repos, userErr = getReposForUser(selector)
 		if userErr != nil {
-			// TODO nicer error handling
-			return errors.New("oh no")
+			return fmt.Errorf("could not find '%s': %w; %w", selector, orgErr, userErr)
 		}
 	}
 
@@ -195,11 +207,6 @@ func _main(args []string) error {
 		}
 	}
 
-	// TODO
-	// * add link to repo Actions tab
-	// * add flag for time period (e.g pick a month or start/end date)
-	// * UI updates (icon colors, bold repo name, etc.)
-
 	fmt.Printf("Total billable time: %s\n", prettyMS(totalBillableMs))
 
 	for _, r := range repos {
@@ -225,16 +232,6 @@ func _main(args []string) error {
 			fmt.Println(lipgloss.JoinHorizontal(lipgloss.Top, row...))
 		}
 	}
-
-	// TODO lipgloss tasks:
-	// - border around cards
-	// - default to max four columns
-	// - snug up any margin/padding
-	// - add embellishments like color/bolding
-
-	// TODO recognize if we're looking for the authenticated user, uses a different endpoint
-
-	// gh api "/orgs/cli/repos" --jq ".[]|.full_name"
 
 	return nil
 }
@@ -362,7 +359,8 @@ func getWorkflows(repoData repositoryData) ([]*workflow, error) {
 }
 
 func main() {
-	err := _main(os.Args)
+	// TODO testing is annoying bc of flag.Parse() in _main
+	err := _main()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
