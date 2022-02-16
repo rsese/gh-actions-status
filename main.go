@@ -192,36 +192,11 @@ type options struct {
 
 func _main(opts *options) error {
 	selector := opts.Selector
-	repositories := opts.Repositories
 	last := opts.Last
 
-	var repos []*repositoryData
-
-	if len(repositories) > 0 {
-		var path string
-		var stdout bytes.Buffer
-		var err error
-		var data repositoryData
-		for _, repoName := range repositories {
-			path = fmt.Sprintf("repos/%s/%s", selector, repoName)
-			if stdout, _, err = gh("api", "--cache", defaultApiCacheTime, path); err != nil {
-				return err
-			}
-			if err = json.Unmarshal(stdout.Bytes(), &data); err != nil {
-				return err
-			}
-			repos = append(repos, &data)
-		}
-	} else {
-		var orgErr error
-		var userErr error
-		repos, orgErr = getAllReposForOrg(selector)
-		if orgErr != nil {
-			repos, userErr = getAllReposForUser(selector)
-			if userErr != nil {
-				return fmt.Errorf("could not find '%s': %w; %w", selector, orgErr, userErr)
-			}
-		}
+	repos, err := populateRepos(opts)
+	if err != nil {
+		return fmt.Errorf("could not fetch repository data: %w", err)
 	}
 
 	columnWidth := defaultWorkflowNameLength + 3 // +3 for "..."
@@ -278,6 +253,38 @@ func _main(opts *options) error {
 	}
 
 	return nil
+}
+
+func populateRepos(opts *options) ([]*repositoryData, error) {
+	result := []*repositoryData{}
+	if len(opts.Repositories) > 0 {
+		var path string
+		var stdout bytes.Buffer
+		var err error
+		var data repositoryData
+		for _, repoName := range opts.Repositories {
+			path = fmt.Sprintf("repos/%s/%s", opts.Selector, repoName)
+			if stdout, _, err = gh("api", "--cache", defaultApiCacheTime, path); err != nil {
+				return nil, err
+			}
+			if err = json.Unmarshal(stdout.Bytes(), &data); err != nil {
+				return nil, err
+			}
+			result = append(result, &data)
+		}
+	} else {
+		var orgErr error
+		var userErr error
+		result, orgErr = getAllReposForOrg(opts.Selector)
+		if orgErr != nil {
+			result, userErr = getAllReposForUser(opts.Selector)
+			if userErr != nil {
+				return nil, fmt.Errorf("could not find '%s': %w; %w", opts.Selector, orgErr, userErr)
+			}
+		}
+	}
+
+	return result, nil
 }
 
 func getAllReposForOrg(selector string) ([]*repositoryData, error) {
