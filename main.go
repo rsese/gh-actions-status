@@ -258,45 +258,43 @@ func _main(opts *options) error {
 func populateRepos(opts *options) ([]*repositoryData, error) {
 	result := []*repositoryData{}
 	if len(opts.Repositories) > 0 {
-		var path string
-		var stdout bytes.Buffer
-		var err error
-		var data repositoryData
 		for _, repoName := range opts.Repositories {
-			path = fmt.Sprintf("repos/%s/%s", opts.Selector, repoName)
-			if stdout, _, err = gh("api", "--cache", defaultApiCacheTime, path); err != nil {
-				return nil, err
+			repoData, err := getRepo(opts.Selector, repoName)
+			if err != nil {
+				return nil, fmt.Errorf("failed to fetch data for %s/%s: %w", opts.Selector, repoName, err)
 			}
-			if err = json.Unmarshal(stdout.Bytes(), &data); err != nil {
-				return nil, err
-			}
-			result = append(result, &data)
+			result = append(result, repoData)
 		}
-	} else {
-		var orgErr error
-		var userErr error
-		result, orgErr = getAllReposForOrg(opts.Selector)
-		if orgErr != nil {
-			result, userErr = getAllReposForUser(opts.Selector)
-			if userErr != nil {
-				return nil, fmt.Errorf("could not find '%s': %w; %w", opts.Selector, orgErr, userErr)
-			}
+
+		return result, nil
+	}
+
+	var orgErr error
+	var userErr error
+	result, orgErr = getAllRepos(fmt.Sprintf("orgs/%s/repos", opts.Selector))
+	if orgErr != nil {
+		result, userErr = getAllRepos(fmt.Sprintf("users/%s/repos", opts.Selector))
+		if userErr != nil {
+			return nil, fmt.Errorf("could not find '%s': %s; %s", opts.Selector, orgErr, userErr)
 		}
 	}
 
 	return result, nil
 }
 
-func getAllReposForOrg(selector string) ([]*repositoryData, error) {
-	s := fmt.Sprintf("orgs/%s/repos", selector)
+func getRepo(owner, name string) (*repositoryData, error) {
+	path := fmt.Sprintf("repos/%s/%s", owner, name)
+	var stdout bytes.Buffer
+	var data repositoryData
+	var err error
+	if stdout, _, err = gh("api", "--cache", defaultApiCacheTime, path); err != nil {
+		return nil, err
+	}
+	if err := json.Unmarshal(stdout.Bytes(), &data); err != nil {
+		return nil, err
+	}
 
-	return getAllRepos(s)
-}
-
-func getAllReposForUser(selector string) ([]*repositoryData, error) {
-	s := fmt.Sprintf("users/%s/repos", selector)
-
-	return getAllRepos(s)
+	return &data, nil
 }
 
 func getAllRepos(path string) ([]*repositoryData, error) {
