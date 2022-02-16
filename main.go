@@ -184,36 +184,25 @@ func daysToHours(days string) string {
 	return fmt.Sprintf("%dh", daysNum*24)
 }
 
-func _main() error {
-	repositories := flag.StringSliceP("repos", "r", []string{}, "One or more repository names from the provided org or user")
-	last := flag.StringP("last", "l", "30d", "What period of time to cover. Default: 30d")
+type options struct {
+	Repositories []string
+	Last         time.Duration
+	Selector     string
+}
 
-	// TODO thread last all the way through to the run API calls; use it to filter the runs we fetch.
-	fmt.Printf("DBG %#v\n", last)
-
-	flag.Parse()
-
-	hoursLast, err := time.ParseDuration(daysToHours(*last))
-
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-	}
-
-	if len(flag.Args()) != 1 {
-		return errors.New("Need exactly one argument, either an organization or user name")
-	}
-
-	selector := flag.Arg(0)
+func _main(opts *options) error {
+	selector := opts.Selector
+	repositories := opts.Repositories
+	last := opts.Last
 
 	var repos []*repositoryData
 
-	if len(*repositories) > 0 {
+	if len(repositories) > 0 {
 		var path string
 		var stdout bytes.Buffer
 		var err error
 		var data repositoryData
-		for _, repoName := range *repositories {
+		for _, repoName := range repositories {
 			path = fmt.Sprintf("repos/%s/%s", selector, repoName)
 			if stdout, _, err = gh("api", "--cache", defaultApiCacheTime, path); err != nil {
 				return err
@@ -250,7 +239,7 @@ func _main() error {
 	totalBillableMs := 0
 
 	for _, r := range repos {
-		workflows, err := getWorkflows(*r, hoursLast)
+		workflows, err := getWorkflows(*r, last)
 		if err != nil {
 			return err
 		}
@@ -318,7 +307,7 @@ func getAllRepos(path string) ([]*repositoryData, error) {
 	return repoData, nil
 }
 
-func getWorkflows(repoData repositoryData, hoursLast time.Duration) ([]*workflow, error) {
+func getWorkflows(repoData repositoryData, last time.Duration) ([]*workflow, error) {
 	workflowsPath := fmt.Sprintf("repos/%s/actions/workflows", repoData.Name)
 
 	stdout, _, err := gh("api", "--cache", defaultApiCacheTime, workflowsPath, "--jq", ".workflows")
@@ -387,7 +376,7 @@ func getWorkflows(repoData repositoryData, hoursLast time.Duration) ([]*workflow
 				rr.Elapsed = r.UpdatedAt.Sub(r.CreatedAt)
 				finishedAgo := time.Now().Sub(rr.Finished)
 
-				if hoursLast-finishedAgo > 0 {
+				if last-finishedAgo > 0 {
 					runs = append(runs, rr)
 				}
 			}
@@ -417,9 +406,38 @@ func getWorkflows(repoData repositoryData, hoursLast time.Duration) ([]*workflow
 	return out, nil
 }
 
+func parseArgs() (*options, error) {
+	repositories := flag.StringSliceP("repos", "r", []string{}, "One or more repository names from the provided org or user")
+	last := flag.StringP("last", "l", "30d", "What period of time to cover. Default: 30d")
+
+	flag.Parse()
+
+	if len(flag.Args()) != 1 {
+		return nil, errors.New("need exactly one argument, either an organization or user name")
+	}
+
+	hoursLast, err := time.ParseDuration(daysToHours(*last))
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse duration: %w", err)
+	}
+
+	return &options{
+		Repositories: *repositories,
+		Last:         hoursLast,
+		Selector:     flag.Arg(0),
+	}, nil
+}
+
 func main() {
+	opts, err := parseArgs()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "failed to parse arguments: %s\n", err)
+		os.Exit(1)
+	}
+
 	// TODO testing is annoying bc of flag.Parse() in _main
-	err := _main()
+	err = _main(opts)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
