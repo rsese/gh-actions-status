@@ -27,16 +27,8 @@ const defaultApiCacheTime = "60m"
 /*
 	// TODO
 	// * add link to repo Actions tab
-	// * add flag for time period (e.g pick a month or start/end date)
 	// * UI updates (icon colors, bold repo name, etc.)
-
-	// TODO recognize if we're looking for the authenticated user, uses a different endpoint
-	// - is this actually important?
-	// gh api "/orgs/cli/repos" --jq ".[]|.full_name"
-
-
-	// --last 90d
-
+	// * refactoring work
 */
 
 type run struct {
@@ -209,7 +201,10 @@ func _main(opts *options) error {
 		BorderStyle(lipgloss.DoubleBorder()).
 		BorderForeground(lipgloss.Color("63"))
 
-	fmt.Printf("GitHub Actions dashboard for %s for the month of %s\n", selector, "TODO")
+	// TODO refactoring: separate rendering out into the bottom of _main
+
+	// TODO steal code from gh for humanizing opts.Last
+	fmt.Printf("GitHub Actions dashboard for %s for the past %s\n", selector, opts.Last)
 
 	totalBillableMs := 0
 
