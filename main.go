@@ -8,6 +8,7 @@ import (
 	"math"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -43,6 +44,7 @@ type run struct {
 	Elapsed    time.Duration
 	Status     string
 	Conclusion string
+	URL        string
 }
 
 type workflow struct {
@@ -159,15 +161,44 @@ func prettyMS(ms int) string {
 	return fmt.Sprintf("%.2fm", float32(ms)/60000)
 }
 
+func daysToHours(days string) string {
+	timeUnit := string(days[len(days)-1])
+
+	if timeUnit == "h" {
+		return days
+	}
+
+	if timeUnit != "d" {
+		fmt.Fprintf(os.Stderr, "Period of time should be in days, e.g. '7d' for 7 days\n")
+		os.Exit(1)
+	}
+
+	daysAsString := days[:len(days)-1]
+	daysNum, err := strconv.ParseInt(daysAsString, 0, 32)
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
+	}
+
+	return fmt.Sprintf("%dh", daysNum*24)
+}
+
 func _main() error {
-	defaultLast, _ := time.ParseDuration("30d")
 	repositories := flag.StringSliceP("repos", "r", []string{}, "One or more repository names from the provided org or user")
-	last := flag.DurationP("last", "l", defaultLast, "What period of time to cover. Default: 30d")
+	last := flag.StringP("last", "l", "30d", "What period of time to cover. Default: 30d")
 
 	// TODO thread last all the way through to the run API calls; use it to filter the runs we fetch.
 	fmt.Printf("DBG %#v\n", last)
 
 	flag.Parse()
+
+	hoursLast, err := time.ParseDuration(daysToHours(*last))
+
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "%s\n", err)
+		os.Exit(1)
+	}
 
 	if len(flag.Args()) != 1 {
 		return errors.New("Need exactly one argument, either an organization or user name")
@@ -219,7 +250,7 @@ func _main() error {
 	totalBillableMs := 0
 
 	for _, r := range repos {
-		workflows, err := getWorkflows(*r)
+		workflows, err := getWorkflows(*r, hoursLast)
 		if err != nil {
 			return err
 		}
@@ -287,7 +318,7 @@ func getAllRepos(path string) ([]*repositoryData, error) {
 	return repoData, nil
 }
 
-func getWorkflows(repoData repositoryData) ([]*workflow, error) {
+func getWorkflows(repoData repositoryData, hoursLast time.Duration) ([]*workflow, error) {
 	workflowsPath := fmt.Sprintf("repos/%s/actions/workflows", repoData.Name)
 
 	stdout, _, err := gh("api", "--cache", defaultApiCacheTime, workflowsPath, "--jq", ".workflows")
@@ -311,10 +342,12 @@ func getWorkflows(repoData repositoryData) ([]*workflow, error) {
 	out := []*workflow{}
 
 	type runPayload struct {
+		Id         int       `json:"id"`
 		CreatedAt  time.Time `json:"created_at"`
 		UpdatedAt  time.Time `json:"updated_at"`
 		Status     string
 		Conclusion string
+		URL        string
 	}
 
 	type billablePayload struct {
@@ -347,32 +380,31 @@ func getWorkflows(repoData repositoryData) ([]*workflow, error) {
 		runs := []run{}
 
 		for _, r := range rs {
-			rr := run{Status: r.Status, Conclusion: r.Conclusion}
+			rr := run{Status: r.Status, Conclusion: r.Conclusion, URL: r.URL}
 
 			if r.Status == "completed" {
 				rr.Finished = r.UpdatedAt
 				rr.Elapsed = r.UpdatedAt.Sub(r.CreatedAt)
-			}
+				finishedAgo := time.Now().Sub(rr.Finished)
 
-			runs = append(runs, rr)
+				if hoursLast-finishedAgo > 0 {
+					runs = append(runs, rr)
+				}
+			}
 		}
 
-		// TODO
-		// - switch to getting timing per run
-		// - filter runs by selected time period
-		// - sum up the billable time per workflow
-
-		billablePath := fmt.Sprintf("%s/timing", w.URL)
-		stdout, _, err = gh("api", "--cache", defaultApiCacheTime, billablePath, "--jq", ".billable")
-
 		if repoData.Private {
-			bp := billablePayload{}
-			err = json.Unmarshal(stdout.Bytes(), &bp)
-			if err != nil {
-				return nil, err
-			}
+			for _, r := range runs {
+				runTimingPath := fmt.Sprintf("%s/timing", r.URL)
+				stdout, _, err = gh("api", "--cache", defaultApiCacheTime, runTimingPath, "--jq", ".billable")
+				bp := billablePayload{}
+				err = json.Unmarshal(stdout.Bytes(), &bp)
+				if err != nil {
+					return nil, err
+				}
 
-			totalMs += bp.MacOs.TotalMs + bp.Windows.TotalMs + bp.Ubuntu.TotalMs
+				totalMs += bp.MacOs.TotalMs + bp.Windows.TotalMs + bp.Ubuntu.TotalMs
+			}
 		}
 
 		out = append(out, &workflow{
