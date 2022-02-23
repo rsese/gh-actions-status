@@ -18,6 +18,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 	"github.com/cli/safeexec"
 	flag "github.com/spf13/pflag"
+	"github.com/vilmibm/actions-dashboard/util"
 )
 
 const defaultMaxRuns = 5
@@ -153,29 +154,6 @@ func prettyMS(ms int) string {
 	return fmt.Sprintf("%.2fm", float32(ms)/60000)
 }
 
-func daysToHours(days string) string {
-	timeUnit := string(days[len(days)-1])
-
-	if timeUnit == "h" {
-		return days
-	}
-
-	if timeUnit != "d" {
-		fmt.Fprintf(os.Stderr, "Period of time should be in days, e.g. '7d' for 7 days\n")
-		os.Exit(1)
-	}
-
-	daysAsString := days[:len(days)-1]
-	daysNum, err := strconv.ParseInt(daysAsString, 0, 32)
-
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "%s\n", err)
-		os.Exit(1)
-	}
-
-	return fmt.Sprintf("%dh", daysNum*24)
-}
-
 type options struct {
 	Repositories []string
 	Last         time.Duration
@@ -203,8 +181,7 @@ func _main(opts *options) error {
 
 	// TODO refactoring: separate rendering out into the bottom of _main
 
-	// TODO steal code from gh for humanizing opts.Last
-	fmt.Printf("GitHub Actions dashboard for %s for the past %s\n", selector, opts.Last)
+	fmt.Printf("GitHub Actions dashboard for %s for the past %s\n", selector, util.FuzzyAgo(opts.Last))
 
 	totalBillableMs := 0
 
@@ -408,7 +385,7 @@ func getWorkflows(repoData repositoryData, last time.Duration) ([]*workflow, err
 
 func parseArgs() (*options, error) {
 	repositories := flag.StringSliceP("repos", "r", []string{}, "One or more repository names from the provided org or user")
-	last := flag.StringP("last", "l", "30d", "What period of time to cover. Default: 30d")
+	last := flag.StringP("last", "l", "30d", "What period of time to cover in hours (eg 1h) or days (eg 30d). Default: 30d")
 
 	flag.Parse()
 
@@ -416,7 +393,23 @@ func parseArgs() (*options, error) {
 		return nil, errors.New("need exactly one argument, either an organization or user name")
 	}
 
-	hoursLast, err := time.ParseDuration(daysToHours(*last))
+	lastVal := *last
+	timeUnit := string(lastVal[len(lastVal)-1])
+
+	// Go cannot parse duration "1d" which is stupid; need to convert it to hours before we can get a proper duration.
+	if timeUnit == "d" {
+		asNum, err := strconv.Atoi(lastVal[0 : len(lastVal)-1])
+		if err != nil {
+			return nil, fmt.Errorf("could not parse number: %w", err)
+		}
+		lastVal = fmt.Sprintf("%dh", asNum*24)
+	}
+
+	if timeUnit != "h" && timeUnit != "d" {
+		return nil, fmt.Errorf("report duration should be in hours or duration (eg 1h or 30d)")
+	}
+
+	duration, err := time.ParseDuration(lastVal)
 
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse duration: %w", err)
@@ -424,7 +417,7 @@ func parseArgs() (*options, error) {
 
 	return &options{
 		Repositories: *repositories,
-		Last:         hoursLast,
+		Last:         duration,
 		Selector:     flag.Arg(0),
 	}, nil
 }
