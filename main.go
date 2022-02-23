@@ -29,7 +29,6 @@ const defaultApiCacheTime = "60m"
 	// TODO
 	// * add link to repo Actions tab
 	// * UI updates (icon colors, bold repo name, etc.)
-	// * refactoring work
 */
 
 type run struct {
@@ -130,7 +129,7 @@ Billable time: {{call .PrettyMS .BillableMs }}{{end}}`)
 		AvgElapsed: w.AverageElapsed(),
 		Health:     w.RenderHealth(),
 		BillableMs: w.BillableMs,
-		PrettyMS:   prettyMS,
+		PrettyMS:   util.PrettyMS,
 	}
 
 	buf := bytes.Buffer{}
@@ -142,16 +141,6 @@ type repositoryData struct {
 	Name      string `json:"full_name"`
 	Private   bool
 	Workflows []*workflow
-}
-
-func prettyMS(ms int) string {
-	if ms == 60000 {
-		return fmt.Sprintf("1m")
-	}
-	if ms < 60000 {
-		return fmt.Sprintf("%dms", ms)
-	}
-	return fmt.Sprintf("%.2fm", float32(ms)/60000)
 }
 
 type options struct {
@@ -179,10 +168,6 @@ func _main(opts *options) error {
 		BorderStyle(lipgloss.DoubleBorder()).
 		BorderForeground(lipgloss.Color("63"))
 
-	// TODO refactoring: separate rendering out into the bottom of _main
-
-	fmt.Printf("GitHub Actions dashboard for %s for the past %s\n", selector, util.FuzzyAgo(opts.Last))
-
 	totalBillableMs := 0
 
 	for _, r := range repos {
@@ -198,7 +183,8 @@ func _main(opts *options) error {
 		}
 	}
 
-	fmt.Printf("Total billable time: %s\n", prettyMS(totalBillableMs))
+	fmt.Printf("GitHub Actions dashboard for %s for the past %s\n", selector, util.FuzzyAgo(opts.Last))
+	fmt.Printf("Total billable time: %s\n", util.PrettyMS(totalBillableMs))
 
 	for _, r := range repos {
 		if len(r.Workflows) == 0 {
@@ -337,10 +323,13 @@ func getWorkflows(repoData repositoryData, last time.Duration) ([]*workflow, err
 
 		runsPath := fmt.Sprintf("%s/runs", w.URL)
 		stdout, _, err = gh("api", "--cache", defaultApiCacheTime, runsPath, "--jq", ".workflow_runs")
+		if err != nil {
+			return nil, fmt.Errorf("could not call gh: %w", err)
+		}
 		rs := []runPayload{}
 		err = json.Unmarshal(stdout.Bytes(), &rs)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("could not parse json: %w", err)
 		}
 
 		runs := []run{}
@@ -351,7 +340,7 @@ func getWorkflows(repoData repositoryData, last time.Duration) ([]*workflow, err
 			if r.Status == "completed" {
 				rr.Finished = r.UpdatedAt
 				rr.Elapsed = r.UpdatedAt.Sub(r.CreatedAt)
-				finishedAgo := time.Now().Sub(rr.Finished)
+				finishedAgo := time.Since(rr.Finished)
 
 				if last-finishedAgo > 0 {
 					runs = append(runs, rr)
@@ -363,10 +352,13 @@ func getWorkflows(repoData repositoryData, last time.Duration) ([]*workflow, err
 			for _, r := range runs {
 				runTimingPath := fmt.Sprintf("%s/timing", r.URL)
 				stdout, _, err = gh("api", "--cache", defaultApiCacheTime, runTimingPath, "--jq", ".billable")
+				if err != nil {
+					return nil, fmt.Errorf("could not call gh: %w", err)
+				}
 				bp := billablePayload{}
 				err = json.Unmarshal(stdout.Bytes(), &bp)
 				if err != nil {
-					return nil, err
+					return nil, fmt.Errorf("could not parse json: %w", err)
 				}
 
 				totalMs += bp.MacOs.TotalMs + bp.Windows.TotalMs + bp.Ubuntu.TotalMs

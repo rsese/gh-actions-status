@@ -25,3 +25,13 @@ func FuzzyAgo(ago time.Duration) string {
 
 	return Pluralize(int(ago.Hours()/24/365), "year")
 }
+
+func PrettyMS(ms int) string {
+	if ms == 60000 {
+		return "1m"
+	}
+	if ms < 60000 {
+		return fmt.Sprintf("%dms", ms)
+	}
+	return fmt.Sprintf("%.2fm", float32(ms)/60000)
+}
