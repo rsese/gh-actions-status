@@ -27,7 +27,6 @@ const defaultApiCacheTime = "60m"
 
 /*
 	// TODO
-	// * add link to repo Actions tab
 	// * UI updates (icon colors, bold repo name, etc.)
 */
 
@@ -192,6 +191,9 @@ func _main(opts *options) error {
 		}
 		fmt.Println()
 		fmt.Println(r.Name)
+		// TODO leverage go-gh to determine what host to use
+		// (NB: go-gh needs a PR in order to help with this)
+		fmt.Printf("(view on the web: https://github.com/%s/actions )\n", r.Name)
 
 		totalRows := int(math.Ceil(float64(len(r.Workflows)) / float64(cardsPerRow)))
 		cardRows := make([][]string, totalRows)
@@ -245,6 +247,7 @@ func getRepo(owner, name string) (*repositoryData, error) {
 	var stdout bytes.Buffer
 	var data repositoryData
 	var err error
+	// TODO consider using go-gh
 	if stdout, _, err = gh("api", "--cache", defaultApiCacheTime, path); err != nil {
 		return nil, err
 	}
@@ -256,6 +259,7 @@ func getRepo(owner, name string) (*repositoryData, error) {
 }
 
 func getAllRepos(path string) ([]*repositoryData, error) {
+	// TODO consider using go-gh
 	stdout, _, err := gh("api", "--cache", defaultApiCacheTime, path)
 	if err != nil {
 		return nil, err
@@ -273,6 +277,7 @@ func getAllRepos(path string) ([]*repositoryData, error) {
 func getWorkflows(repoData repositoryData, last time.Duration) ([]*workflow, error) {
 	workflowsPath := fmt.Sprintf("repos/%s/actions/workflows", repoData.Name)
 
+	// TODO consider using go-gh
 	stdout, _, err := gh("api", "--cache", defaultApiCacheTime, workflowsPath, "--jq", ".workflows")
 	if err != nil {
 		return nil, err
@@ -322,6 +327,7 @@ func getWorkflows(repoData repositoryData, last time.Duration) ([]*workflow, err
 		}
 
 		runsPath := fmt.Sprintf("%s/runs", w.URL)
+		// TODO consider using go-gh
 		stdout, _, err = gh("api", "--cache", defaultApiCacheTime, runsPath, "--jq", ".workflow_runs")
 		if err != nil {
 			return nil, fmt.Errorf("could not call gh: %w", err)
@@ -351,6 +357,7 @@ func getWorkflows(repoData repositoryData, last time.Duration) ([]*workflow, err
 		if repoData.Private {
 			for _, r := range runs {
 				runTimingPath := fmt.Sprintf("%s/timing", r.URL)
+				// TODO consider using go-gh
 				stdout, _, err = gh("api", "--cache", defaultApiCacheTime, runTimingPath, "--jq", ".billable")
 				if err != nil {
 					return nil, fmt.Errorf("could not call gh: %w", err)
