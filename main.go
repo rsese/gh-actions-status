@@ -110,6 +110,7 @@ func getTerminalWidth() int {
 
 func (w *workflow) RenderCard() string {
 	// Assumes that run data is time filtered already
+	// TODO add color etc in here:
 	tmpl, _ := template.New("workflowCard").Parse(
 		`{{ .Name }}
 Health: {{ .Health }}
@@ -158,7 +159,7 @@ func _main(opts *options) error {
 	}
 
 	columnWidth := defaultWorkflowNameLength + 3 // +3 for "..."
-	cardsPerRow := getTerminalWidth() / columnWidth
+	cardsPerRow := (getTerminalWidth() / columnWidth) - 1
 
 	cardStyle := lipgloss.NewStyle().
 		Align(lipgloss.Left).
@@ -166,6 +167,11 @@ func _main(opts *options) error {
 		Width(columnWidth).
 		BorderStyle(lipgloss.DoubleBorder()).
 		BorderForeground(lipgloss.Color("63"))
+
+	titleStyle := lipgloss.NewStyle().Bold(true).Align(lipgloss.Center).Width(getTerminalWidth())
+	subTitleStyle := lipgloss.NewStyle().Align(lipgloss.Center).Width(getTerminalWidth())
+	repoNameStyle := lipgloss.NewStyle().Bold(true)
+	repoHintStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#808080")).Italic(true)
 
 	totalBillableMs := 0
 
@@ -182,18 +188,19 @@ func _main(opts *options) error {
 		}
 	}
 
-	fmt.Printf("GitHub Actions dashboard for %s for the past %s\n", selector, util.FuzzyAgo(opts.Last))
-	fmt.Printf("Total billable time: %s\n", util.PrettyMS(totalBillableMs))
+	fmt.Println(titleStyle.Render(fmt.Sprintf("GitHub Actions dashboard for %s for the past %s", selector, util.FuzzyAgo(opts.Last))))
+	fmt.Println(subTitleStyle.Render(fmt.Sprintf("Total billable time: %s", util.PrettyMS(totalBillableMs))))
 
 	for _, r := range repos {
 		if len(r.Workflows) == 0 {
 			continue
 		}
 		fmt.Println()
-		fmt.Println(r.Name)
+		fmt.Print(repoNameStyle.Render(r.Name))
 		// TODO leverage go-gh to determine what host to use
 		// (NB: go-gh needs a PR in order to help with this)
-		fmt.Printf("(view on the web: https://github.com/%s/actions )\n", r.Name)
+		fmt.Print(repoHintStyle.Render(fmt.Sprintf(" https://github.com/%s/actions\n", r.Name)))
+		fmt.Println()
 
 		totalRows := int(math.Ceil(float64(len(r.Workflows)) / float64(cardsPerRow)))
 		cardRows := make([][]string, totalRows)
@@ -235,7 +242,7 @@ func populateRepos(opts *options) ([]*repositoryData, error) {
 	if orgErr != nil {
 		result, userErr = getAllRepos(fmt.Sprintf("users/%s/repos", opts.Selector))
 		if userErr != nil {
-			return nil, fmt.Errorf("could not find '%s': %s; %s", opts.Selector, orgErr, userErr)
+			return nil, fmt.Errorf("could not find a user or org called '%s': %s; %s", opts.Selector, orgErr, userErr)
 		}
 	}
 
