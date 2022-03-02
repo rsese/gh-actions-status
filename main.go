@@ -109,6 +109,20 @@ func getTerminalWidth() int {
 }
 
 func (w *workflow) RenderCard() string {
+	// TODO refactor this function
+	if len(w.Runs) == 0 {
+		noRunsTmpl, _ := template.New("emptyWorkflowCard").Parse(
+			`{{ .Name }}
+No runs for this period.`)
+
+		tmplData := struct {
+			Name string
+		}{truncateWorkflowName(w.Name, defaultWorkflowNameLength)}
+
+		buf := bytes.Buffer{}
+		_ = noRunsTmpl.Execute(&buf, tmplData)
+		return buf.String()
+	}
 	// Assumes that run data is time filtered already
 	// TODO add color etc in here:
 	tmpl, _ := template.New("workflowCard").Parse(
