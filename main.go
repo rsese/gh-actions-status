@@ -109,6 +109,8 @@ func getTerminalWidth() int {
 }
 
 func (w *workflow) RenderCard() string {
+	workflowNameStyle := lipgloss.NewStyle().Bold(true)
+	labelStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#808080"))
 	var tmpl *template.Template
 	tmplData := struct {
 		Name       string
@@ -116,12 +118,16 @@ func (w *workflow) RenderCard() string {
 		Health     string
 		BillableMs int
 		PrettyMS   func(int) string
+		Label      func(string) string
 	}{
-		Name:       truncateWorkflowName(w.Name, defaultWorkflowNameLength),
+		Name:       workflowNameStyle.Render(truncateWorkflowName(w.Name, defaultWorkflowNameLength)),
 		AvgElapsed: w.AverageElapsed(),
 		Health:     w.RenderHealth(),
 		BillableMs: w.BillableMs,
 		PrettyMS:   util.PrettyMS,
+		Label: func(s string) string {
+			return labelStyle.Render(s)
+		},
 	}
 
 	// Assumes that run data is time filtered already
@@ -129,14 +135,14 @@ func (w *workflow) RenderCard() string {
 	if len(w.Runs) == 0 {
 		tmpl, _ = template.New("emptyWorkflowCard").Parse(
 			`{{ .Name }}
-No runs for this period.`)
+{{call .Label "No runs"}}`)
 	} else {
 		tmpl, _ = template.New("workflowCard").Parse(
 			`{{ .Name }}
-Health: {{ .Health }}
-Avg elapsed: {{ .AvgElapsed }}
+{{call .Label "Health:"}} {{ .Health }}
+{{call .Label "Avg elapsed:"}} {{ .AvgElapsed }}
 {{- if .BillableMs }}
-Billable time: {{call .PrettyMS .BillableMs }}{{end}}`)
+{{call .Label "Billable time:"}} {{call .PrettyMS .BillableMs }}{{end}}`)
 	}
 	buf := bytes.Buffer{}
 	_ = tmpl.Execute(&buf, tmplData)
