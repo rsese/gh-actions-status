@@ -25,11 +25,6 @@ const defaultMaxRuns = 5
 const defaultWorkflowNameLength = 17
 const defaultApiCacheTime = "60m"
 
-/*
-	// TODO
-	// * UI updates (icon colors, bold repo name, etc.)
-*/
-
 type run struct {
 	Finished   time.Time
 	Elapsed    time.Duration
@@ -173,7 +168,7 @@ func _main(opts *options) error {
 		return fmt.Errorf("could not fetch repository data: %w", err)
 	}
 
-	columnWidth := defaultWorkflowNameLength + 3 // +3 for "..."
+	columnWidth := defaultWorkflowNameLength + 5 // account for ellipsis and padding/border
 	cardsPerRow := (getTerminalWidth() / columnWidth) - 1
 
 	cardStyle := lipgloss.NewStyle().
