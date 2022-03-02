@@ -45,6 +45,9 @@ type workflow struct {
 }
 
 func (w *workflow) RenderHealth() string {
+	successStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#32cd32"))
+	neutralStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#808080"))
+	failedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#dc143c"))
 	var results string
 
 	for i, r := range w.Runs {
@@ -53,17 +56,17 @@ func (w *workflow) RenderHealth() string {
 		}
 
 		if r.Status != "completed" {
-			results += "-"
+			results += neutralStyle.Render("-")
 			continue
 		}
 
 		switch r.Conclusion {
 		case "success":
-			results += "✓"
+			results += successStyle.Render("✓")
 		case "skipped", "cancelled", "neutral":
-			results += "-"
+			results += neutralStyle.Render("-")
 		default:
-			results += "x"
+			results += failedStyle.Render("x")
 		}
 	}
 
