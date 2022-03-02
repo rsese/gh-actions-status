@@ -2,6 +2,8 @@
 
 _being an extension to view the overall health of an organization's use of actions_
 
+<img width="865" alt="screenshot of extension" src="https://user-images.githubusercontent.com/98482/156441347-a593d6a1-55ca-4911-a586-f88f18069ab6.png">
+
 ## Usage
 
 By default, this command shows actions health for the last 30 days.
