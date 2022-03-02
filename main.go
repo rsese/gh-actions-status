@@ -109,29 +109,7 @@ func getTerminalWidth() int {
 }
 
 func (w *workflow) RenderCard() string {
-	// TODO refactor this function
-	if len(w.Runs) == 0 {
-		noRunsTmpl, _ := template.New("emptyWorkflowCard").Parse(
-			`{{ .Name }}
-No runs for this period.`)
-
-		tmplData := struct {
-			Name string
-		}{truncateWorkflowName(w.Name, defaultWorkflowNameLength)}
-
-		buf := bytes.Buffer{}
-		_ = noRunsTmpl.Execute(&buf, tmplData)
-		return buf.String()
-	}
-	// Assumes that run data is time filtered already
-	// TODO add color etc in here:
-	tmpl, _ := template.New("workflowCard").Parse(
-		`{{ .Name }}
-Health: {{ .Health }}
-Avg elapsed: {{ .AvgElapsed }}
-{{- if .BillableMs }}
-Billable time: {{call .PrettyMS .BillableMs }}{{end}}`)
-
+	var tmpl *template.Template
 	tmplData := struct {
 		Name       string
 		AvgElapsed time.Duration
@@ -146,6 +124,20 @@ Billable time: {{call .PrettyMS .BillableMs }}{{end}}`)
 		PrettyMS:   util.PrettyMS,
 	}
 
+	// Assumes that run data is time filtered already
+	// TODO add color etc in here:
+	if len(w.Runs) == 0 {
+		tmpl, _ = template.New("emptyWorkflowCard").Parse(
+			`{{ .Name }}
+No runs for this period.`)
+	} else {
+		tmpl, _ = template.New("workflowCard").Parse(
+			`{{ .Name }}
+Health: {{ .Health }}
+Avg elapsed: {{ .AvgElapsed }}
+{{- if .BillableMs }}
+Billable time: {{call .PrettyMS .BillableMs }}{{end}}`)
+	}
 	buf := bytes.Buffer{}
 	_ = tmpl.Execute(&buf, tmplData)
 	return buf.String()
