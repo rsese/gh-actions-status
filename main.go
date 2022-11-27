@@ -406,6 +406,10 @@ func parseArgs() (*options, error) {
 	flag.Parse()
 
 	if len(flag.Args()) != 1 {
+		/**
+		 * TODO(norwd): Try to infer the github user name from `gh auth status`
+		 */
+
 		return nil, errors.New("need exactly one argument, either an organization or user name")
 	}
 
