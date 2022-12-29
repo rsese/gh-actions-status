@@ -400,13 +400,42 @@ func getWorkflows(repoData repositoryData, last time.Duration) ([]*workflow, err
 }
 
 func parseArgs() (*options, error) {
+	var selector string
+
 	repositories := flag.StringSliceP("repos", "r", []string{}, "One or more repository names from the provided org or user")
 	last := flag.StringP("last", "l", "30d", "What period of time to cover in hours (eg 1h) or days (eg 30d). Default: 30d")
 
 	flag.Parse()
 
-	if len(flag.Args()) != 1 {
-		return nil, errors.New("need exactly one argument, either an organization or user name")
+	// Try to determine user or org name form single argument
+	if len(flag.Args()) == 1 {
+		// Single argument to use as org/user name
+		selector = flag.Arg(0)
+	} else if len(flag.Args()) != 0 {
+		// Too many arguments, don't try to infer anything, just fail
+		return nil, errors.New("need exactly one argument, either an organization or user name.")
+	} else if _, stderr, err := gh("auth", "status"); err != nil {
+		// Couldn't infer username, gh auth returned error
+		return nil, fmt.Errorf("need exactly one argument, either an organization or user name. Could not determine username from auth status: %w", err)
+	} else if status := stderr.String(); status != "" {
+		// Successfully got auth status, look through it for something that
+		// looks like a username.
+
+		search := "Logged in to github.com as "
+		for _, line := range strings.Split(status, "\n") {
+			if start := strings.Index(line, search); start >= 0 {
+				tokens := strings.Split(line[start+len(search):], " ")
+
+				// Stop looking if username was found
+				if len(tokens) > 0 {
+					selector = tokens[0]
+					break
+				}
+			}
+		}
+	} else {
+		// Couldn't infer username
+		return nil, errors.New("need exactly one argument, either an organization or user name.")
 	}
 
 	lastVal := *last
@@ -434,7 +463,7 @@ func parseArgs() (*options, error) {
 	return &options{
 		Repositories: *repositories,
 		Last:         duration,
-		Selector:     flag.Arg(0),
+		Selector:     selector,
 	}, nil
 }
 
