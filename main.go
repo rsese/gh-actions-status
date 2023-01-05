@@ -97,6 +97,10 @@ func truncateWorkflowName(name string, length int) string {
 }
 
 func getTerminalWidth() int {
+	if !term.IsTerminal(int(os.Stdout.Fd())) {
+		return 80
+	}
+
 	width, _, err := term.GetSize(int(os.Stdout.Fd()))
 
 	if err != nil {
