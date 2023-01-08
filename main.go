@@ -43,22 +43,15 @@ func (w *workflow) RenderHealth() string {
 	successStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#32cd32"))
 	neutralStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#808080"))
 	failedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#dc143c"))
+
 	var results string
+	health := workflowHealth(*w)
 
-	for i, r := range w.Runs {
-		if i > defaultMaxRuns {
-			break
-		}
-
-		if r.Status != "completed" {
-			results += neutralStyle.Render("-")
-			continue
-		}
-
-		switch r.Conclusion {
-		case "success":
+	for _, r := range health {
+		switch r {
+		case '✓':
 			results += successStyle.Render("✓")
-		case "skipped", "cancelled", "neutral":
+		case '-':
 			results += neutralStyle.Render("-")
 		default:
 			results += failedStyle.Render("x")
@@ -159,6 +152,82 @@ type options struct {
 	Selector     string
 }
 
+func workflowHealth(w workflow) string {
+	health := ""
+
+	for i, r := range w.Runs {
+		if i > defaultMaxRuns {
+			break
+		}
+
+		if r.Status != "completed" {
+			health += "-"
+			continue
+		}
+
+		switch r.Conclusion {
+		case "success":
+			health += "✓"
+		case "skipped", "cancelled", "neutral":
+			health += "-"
+		default:
+			health += "x"
+		}
+	}
+
+	return health
+}
+
+func noTerminalRender(repos []*repositoryData, selector string, opts *options) error {
+	totalBillableMs := 0
+
+	for _, r := range repos {
+		workflows, err := getWorkflows(*r, opts.Last)
+		if err != nil {
+			return err
+		}
+
+		r.Workflows = workflows
+
+		for _, w := range workflows {
+			totalBillableMs += w.BillableMs
+		}
+	}
+
+	fmt.Printf("GitHub Actions dashboard for %s for the past %s\n", selector, util.FuzzyAgo(opts.Last))
+	fmt.Printf("Total billable time: %s\n", util.PrettyMS(totalBillableMs))
+
+	for _, r := range repos {
+		if len(r.Workflows) == 0 {
+			continue
+		}
+		fmt.Println()
+		fmt.Println(r.Name)
+		// TODO leverage go-gh to determine what host to use
+		// (NB: go-gh needs a PR in order to help with this)
+		fmt.Printf("https://github.com/%s/actions\n", r.Name)
+		fmt.Println()
+
+		for _, w := range r.Workflows {
+			fmt.Println()
+			fmt.Printf("%s:\n", w.Name)
+			if len(w.Runs) == 0 {
+				fmt.Printf("  No runs\n")
+			} else {
+				health := workflowHealth(*w)
+
+				fmt.Printf("  %-15s %v\n", "Health: ", health)
+				fmt.Printf("  %-15s %v\n", "Avg elapsed: ", w.AverageElapsed())
+				fmt.Printf("  %-15s %v\n", "Billable time: ", util.PrettyMS(w.BillableMs))
+			}
+		}
+
+		fmt.Println()
+	}
+
+	return nil
+}
+
 func _main(opts *options) error {
 	selector := opts.Selector
 	last := opts.Last
@@ -169,6 +238,12 @@ func _main(opts *options) error {
 	}
 
 	columnWidth := defaultWorkflowNameLength + 5 // account for ellipsis and padding/border
+
+	if !term.IsTerminal(int(os.Stdout.Fd())) {
+		noTerminalRender(repos, selector, opts)
+		return nil
+	}
+
 	cardsPerRow := (getTerminalWidth() / columnWidth) - 1
 
 	cardStyle := lipgloss.NewStyle().
