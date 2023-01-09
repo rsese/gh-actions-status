@@ -43,22 +43,15 @@ func (w *workflow) RenderHealth() string {
 	successStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#32cd32"))
 	neutralStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#808080"))
 	failedStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#dc143c"))
+
 	var results string
+	health := workflowHealth(*w)
 
-	for i, r := range w.Runs {
-		if i > defaultMaxRuns {
-			break
-		}
-
-		if r.Status != "completed" {
-			results += neutralStyle.Render("-")
-			continue
-		}
-
-		switch r.Conclusion {
-		case "success":
+	for _, r := range health {
+		switch r {
+		case '✓':
 			results += successStyle.Render("✓")
-		case "skipped", "cancelled", "neutral":
+		case '-':
 			results += neutralStyle.Render("-")
 		default:
 			results += failedStyle.Render("x")
@@ -163,15 +156,65 @@ type options struct {
 	Selector     string
 }
 
-func _main(opts *options) error {
-	selector := opts.Selector
-	last := opts.Last
+func workflowHealth(w workflow) string {
+	health := ""
 
-	repos, err := populateRepos(opts)
-	if err != nil {
-		return fmt.Errorf("could not fetch repository data: %w", err)
+	for i, r := range w.Runs {
+		if i > defaultMaxRuns {
+			break
+		}
+
+		if r.Status != "completed" {
+			health += "-"
+			continue
+		}
+
+		switch r.Conclusion {
+		case "success":
+			health += "✓"
+		case "skipped", "cancelled", "neutral":
+			health += "-"
+		default:
+			health += "x"
+		}
 	}
 
+	return health
+}
+
+func noTerminalRender(repos []*repositoryData) error {
+	for _, r := range repos {
+		if len(r.Workflows) == 0 {
+			continue
+		}
+		fmt.Println()
+		fmt.Println(r.Name)
+		// TODO leverage go-gh to determine what host to use
+		// (NB: go-gh needs a PR in order to help with this)
+		fmt.Printf("https://github.com/%s/actions\n", r.Name)
+		fmt.Println()
+
+		for _, w := range r.Workflows {
+			fmt.Println()
+			fmt.Printf("%s:\n", w.Name)
+			if len(w.Runs) == 0 {
+				fmt.Printf("  No runs\n")
+			} else {
+				health := workflowHealth(*w)
+
+				fmt.Printf("  %-15s %v\n", "Health: ", health)
+				fmt.Printf("  %-15s %v\n", "Avg elapsed: ", w.AverageElapsed())
+				fmt.Printf("  %-15s %v\n", "Billable time: ", util.PrettyMS(w.BillableMs))
+			}
+		}
+
+		fmt.Println()
+	}
+
+	return nil
+}
+
+func terminalRender(repos []*repositoryData) error {
 	columnWidth := defaultWorkflowNameLength + 5 // account for ellipsis and padding/border
 	cardsPerRow := (getTerminalWidth() / columnWidth) - 1
 
@@ -182,28 +225,8 @@ func _main(opts *options) error {
 		BorderStyle(lipgloss.DoubleBorder()).
 		BorderForeground(lipgloss.Color("63"))
 
-	titleStyle := lipgloss.NewStyle().Bold(true).Align(lipgloss.Center).Width(getTerminalWidth())
-	subTitleStyle := lipgloss.NewStyle().Align(lipgloss.Center).Width(getTerminalWidth())
 	repoNameStyle := lipgloss.NewStyle().Bold(true)
 	repoHintStyle := lipgloss.NewStyle().Foreground(lipgloss.Color("#808080")).Italic(true)
-
-	totalBillableMs := 0
-
-	for _, r := range repos {
-		workflows, err := getWorkflows(*r, last)
-		if err != nil {
-			return err
-		}
-
-		r.Workflows = workflows
-
-		for _, w := range workflows {
-			totalBillableMs += w.BillableMs
-		}
-	}
-
-	fmt.Println(titleStyle.Render(fmt.Sprintf("GitHub Actions dashboard for %s for the past %s", selector, util.FuzzyAgo(opts.Last))))
-	fmt.Println(subTitleStyle.Render(fmt.Sprintf("Total billable time: %s", util.PrettyMS(totalBillableMs))))
 
 	for _, r := range repos {
 		if len(r.Workflows) == 0 {
@@ -231,6 +254,46 @@ func _main(opts *options) error {
 		for _, row := range cardRows {
 			fmt.Println(lipgloss.JoinHorizontal(lipgloss.Top, row...))
 		}
+	}
+
+	return nil
+}
+
+func _main(opts *options) error {
+	selector := opts.Selector
+	last := opts.Last
+
+	repos, err := populateRepos(opts)
+	if err != nil {
+		return fmt.Errorf("could not fetch repository data: %w", err)
+	}
+
+	totalBillableMs := 0
+
+	for _, r := range repos {
+		workflows, err := getWorkflows(*r, last)
+		if err != nil {
+			return err
+		}
+
+		r.Workflows = workflows
+
+		for _, w := range workflows {
+			totalBillableMs += w.BillableMs
+		}
+	}
+
+	if term.IsTerminal(int(os.Stdout.Fd())) {
+		titleStyle := lipgloss.NewStyle().Bold(true).Align(lipgloss.Center).Width(getTerminalWidth())
+		subTitleStyle := lipgloss.NewStyle().Align(lipgloss.Center).Width(getTerminalWidth())
+
+		fmt.Println(titleStyle.Render(fmt.Sprintf("GitHub Actions dashboard for %s for the past %s", selector, util.FuzzyAgo(opts.Last))))
+		fmt.Println(subTitleStyle.Render(fmt.Sprintf("Total billable time: %s", util.PrettyMS(totalBillableMs))))
+		terminalRender(repos)
+	} else {
+		fmt.Printf("GitHub Actions dashboard for %s for the past %s\n", selector, util.FuzzyAgo(opts.Last))
+		fmt.Printf("Total billable time: %s\n", util.PrettyMS(totalBillableMs))
+		noTerminalRender(repos)
 	}
 
 	return nil
