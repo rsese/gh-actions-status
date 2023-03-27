@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"math"
 	"os"
-	"os/exec"
 	"strconv"
 	"strings"
 	"text/template"
@@ -16,7 +15,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/charmbracelet/lipgloss"
-	"github.com/cli/safeexec"
+	"github.com/cli/go-gh"
 	flag "github.com/spf13/pflag"
 	"github.com/vilmibm/actions-dashboard/util"
 )
@@ -331,8 +330,7 @@ func getRepo(owner, name string) (*repositoryData, error) {
 	var stdout bytes.Buffer
 	var data repositoryData
 	var err error
-	// TODO consider using go-gh
-	if stdout, _, err = gh("api", "--cache", defaultApiCacheTime, path); err != nil {
+	if stdout, _, err = gh.Exec("api", "--cache", defaultApiCacheTime, path); err != nil {
 		return nil, err
 	}
 	if err := json.Unmarshal(stdout.Bytes(), &data); err != nil {
@@ -343,8 +341,7 @@ func getRepo(owner, name string) (*repositoryData, error) {
 }
 
 func getAllRepos(path string) ([]*repositoryData, error) {
-	// TODO consider using go-gh
-	stdout, _, err := gh("api", "--cache", defaultApiCacheTime, path)
+	stdout, _, err := gh.Exec("api", "--cache", defaultApiCacheTime, path)
 	if err != nil {
 		return nil, err
 	}
@@ -361,8 +358,7 @@ func getAllRepos(path string) ([]*repositoryData, error) {
 func getWorkflows(repoData repositoryData, last time.Duration) ([]*workflow, error) {
 	workflowsPath := fmt.Sprintf("repos/%s/actions/workflows", repoData.Name)
 
-	// TODO consider using go-gh
-	stdout, _, err := gh("api", "--cache", defaultApiCacheTime, workflowsPath, "--jq", ".workflows")
+	stdout, _, err := gh.Exec("api", "--cache", defaultApiCacheTime, workflowsPath, "--jq", ".workflows")
 	if err != nil {
 		return nil, err
 	}
@@ -411,8 +407,7 @@ func getWorkflows(repoData repositoryData, last time.Duration) ([]*workflow, err
 		}
 
 		runsPath := fmt.Sprintf("%s/runs", w.URL)
-		// TODO consider using go-gh
-		stdout, _, err = gh("api", "--cache", defaultApiCacheTime, runsPath, "--jq", ".workflow_runs")
+		stdout, _, err = gh.Exec("api", "--cache", defaultApiCacheTime, runsPath, "--jq", ".workflow_runs")
 		if err != nil {
 			return nil, fmt.Errorf("could not call gh: %w", err)
 		}
@@ -441,8 +436,7 @@ func getWorkflows(repoData repositoryData, last time.Duration) ([]*workflow, err
 		if repoData.Private {
 			for _, r := range runs {
 				runTimingPath := fmt.Sprintf("%s/timing", r.URL)
-				// TODO consider using go-gh
-				stdout, _, err = gh("api", "--cache", defaultApiCacheTime, runTimingPath, "--jq", ".billable")
+				stdout, _, err = gh.Exec("api", "--cache", defaultApiCacheTime, runTimingPath, "--jq", ".billable")
 				if err != nil {
 					return nil, fmt.Errorf("could not call gh: %w", err)
 				}
@@ -481,7 +475,7 @@ func parseArgs() (*options, error) {
 	} else if len(flag.Args()) != 0 {
 		// Too many arguments, don't try to infer anything, just fail
 		return nil, errors.New("need exactly one argument, either an organization or user name.")
-	} else if _, stderr, err := gh("auth", "status"); err != nil {
+	} else if _, stderr, err := gh.Exec("auth", "status"); err != nil {
 		// Couldn't infer username, gh auth returned error
 		return nil, fmt.Errorf("need exactly one argument, either an organization or user name. Could not determine username from auth status: %w", err)
 	} else if status := stderr.String(); status != "" {
@@ -547,25 +541,4 @@ func main() {
 		fmt.Fprintf(os.Stderr, "%s\n", err)
 		os.Exit(1)
 	}
-}
-
-// gh shells out to gh, returning STDOUT/STDERR and any error
-func gh(args ...string) (sout, eout bytes.Buffer, err error) {
-	ghBin, err := safeexec.LookPath("gh")
-	if err != nil {
-		err = fmt.Errorf("could not find gh. Is it installed? error: %w", err)
-		return
-	}
-
-	cmd := exec.Command(ghBin, args...)
-	cmd.Stderr = &eout
-	cmd.Stdout = &sout
-
-	err = cmd.Run()
-	if err != nil {
-		err = fmt.Errorf("failed to run gh. error: %w, stderr: %s", err, eout.String())
-		return
-	}
-
-	return
 }
