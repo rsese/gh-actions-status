@@ -150,9 +150,10 @@ type repositoryData struct {
 }
 
 type options struct {
-	Repositories []string
-	Last         time.Duration
-	Selector     string
+	Repositories        []string
+	Last                time.Duration
+	Selector            string
+	AggregateBillableMs bool
 }
 
 func workflowHealth(w workflow) string {
@@ -270,7 +271,7 @@ func _main(opts *options) error {
 	totalBillableMs := 0
 
 	for _, r := range repos {
-		workflows, err := getWorkflows(*r, last)
+		workflows, err := getWorkflows(*r, last, opts.AggregateBillableMs)
 		if err != nil {
 			return err
 		}
@@ -287,11 +288,15 @@ func _main(opts *options) error {
 		subTitleStyle := lipgloss.NewStyle().Align(lipgloss.Center).Width(getTerminalWidth())
 
 		fmt.Println(titleStyle.Render(fmt.Sprintf("GitHub Actions dashboard for %s for the past %s", selector, util.FuzzyAgo(opts.Last))))
-		fmt.Println(subTitleStyle.Render(fmt.Sprintf("Total billable time: %s", util.PrettyMS(totalBillableMs))))
+		if opts.AggregateBillableMs {
+			fmt.Println(subTitleStyle.Render(fmt.Sprintf("Total billable time: %s", util.PrettyMS(totalBillableMs))))
+		}
 		terminalRender(repos)
 	} else {
 		fmt.Printf("GitHub Actions dashboard for %s for the past %s\n", selector, util.FuzzyAgo(opts.Last))
-		fmt.Printf("Total billable time: %s\n", util.PrettyMS(totalBillableMs))
+		if opts.AggregateBillableMs {
+			fmt.Printf("Total billable time: %s\n", util.PrettyMS(totalBillableMs))
+		}
 		noTerminalRender(repos)
 	}
 
@@ -355,7 +360,7 @@ func getAllRepos(path string) ([]*repositoryData, error) {
 	return repoData, nil
 }
 
-func getWorkflows(repoData repositoryData, last time.Duration) ([]*workflow, error) {
+func getWorkflows(repoData repositoryData, last time.Duration, aggregateBillableMs bool) ([]*workflow, error) {
 	workflowsPath := fmt.Sprintf("repos/%s/actions/workflows", repoData.Name)
 
 	stdout, _, err := gh.Exec("api", "--cache", defaultApiCacheTime, workflowsPath, "--jq", ".workflows")
@@ -433,7 +438,7 @@ func getWorkflows(repoData repositoryData, last time.Duration) ([]*workflow, err
 			}
 		}
 
-		if repoData.Private {
+		if aggregateBillableMs && repoData.Private {
 			for _, r := range runs {
 				runTimingPath := fmt.Sprintf("%s/timing", r.URL)
 				stdout, _, err = gh.Exec("api", "--cache", defaultApiCacheTime, runTimingPath, "--jq", ".billable")
@@ -465,6 +470,7 @@ func parseArgs() (*options, error) {
 
 	repositories := flag.StringSliceP("repos", "r", []string{}, "One or more repository names from the provided org or user")
 	last := flag.StringP("last", "l", "30d", "What period of time to cover in hours (eg 1h) or days (eg 30d). Default: 30d")
+	aggregateBillableMs := flag.BoolP("billable", "b", false, "Should billable ms be aggregated. Default: false")
 
 	flag.Parse()
 
@@ -522,9 +528,10 @@ func parseArgs() (*options, error) {
 	}
 
 	return &options{
-		Repositories: *repositories,
-		Last:         duration,
-		Selector:     selector,
+		Repositories:        *repositories,
+		Last:                duration,
+		Selector:            selector,
+		AggregateBillableMs: *aggregateBillableMs,
 	}, nil
 }
 
