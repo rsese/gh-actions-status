@@ -144,6 +144,7 @@ func (w *workflow) RenderCard() string {
 }
 
 type repositoryData struct {
+	HtmlUrl   string `json:"html_url"`
 	Name      string `json:"full_name"`
 	Private   bool
 	Workflows []*workflow
@@ -188,9 +189,7 @@ func noTerminalRender(repos []*repositoryData) error {
 		}
 		fmt.Println()
 		fmt.Println(r.Name)
-		// TODO leverage go-gh to determine what host to use
-		// (NB: go-gh needs a PR in order to help with this)
-		fmt.Printf("https://github.com/%s/actions\n", r.Name)
+		fmt.Printf("%s/actions\n", r.HtmlUrl)
 		fmt.Println()
 
 		for _, w := range r.Workflows {
@@ -233,9 +232,7 @@ func terminalRender(repos []*repositoryData) error {
 		}
 		fmt.Println()
 		fmt.Print(repoNameStyle.Render(r.Name))
-		// TODO leverage go-gh to determine what host to use
-		// (NB: go-gh needs a PR in order to help with this)
-		fmt.Print(repoHintStyle.Render(fmt.Sprintf(" https://github.com/%s/actions\n", r.Name)))
+		fmt.Print(repoHintStyle.Render(fmt.Sprintf(" %s/actions\n", r.HtmlUrl)))
 		fmt.Println()
 
 		totalRows := int(math.Ceil(float64(len(r.Workflows)) / float64(cardsPerRow)))
