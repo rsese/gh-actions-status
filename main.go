@@ -430,7 +430,7 @@ func getWorkflows(repoData repositoryData, last time.Duration) ([]*workflow, err
 			}
 		}
 
-		if repoData.Private {
+		if repoData.Private && strings.Index(repoData.HtmlUrl, "https://github.com") == 0 {
 			for _, r := range runs {
 				runTimingPath := fmt.Sprintf("%s/timing", r.URL)
 				stdout, _, err = gh.Exec("api", "--cache", defaultApiCacheTime, runTimingPath, "--jq", ".billable")
