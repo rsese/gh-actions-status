@@ -154,6 +154,7 @@ type options struct {
 	Repositories []string
 	Last         time.Duration
 	Selector     string
+	Status       string
 }
 
 func workflowHealth(w workflow) string {
@@ -267,7 +268,7 @@ func _main(opts *options) error {
 	totalBillableMs := 0
 
 	for _, r := range repos {
-		workflows, err := getWorkflows(*r, last)
+		workflows, err := getWorkflows(*r, last, opts)
 		if err != nil {
 			return err
 		}
@@ -352,7 +353,7 @@ func getAllRepos(path string) ([]*repositoryData, error) {
 	return repoData, nil
 }
 
-func getWorkflows(repoData repositoryData, last time.Duration) ([]*workflow, error) {
+func getWorkflows(repoData repositoryData, last time.Duration, opts *options) ([]*workflow, error) {
 	workflowsPath := fmt.Sprintf("repos/%s/actions/workflows", repoData.Name)
 
 	stdout, _, err := gh.Exec("api", "--cache", defaultApiCacheTime, workflowsPath, "--jq", ".workflows")
@@ -403,7 +404,13 @@ func getWorkflows(repoData repositoryData, last time.Duration) ([]*workflow, err
 			continue
 		}
 
-		runsPath := fmt.Sprintf("%s/runs", w.URL)
+		var runsPath string
+		if opts.Status != "" {
+			runsPath = fmt.Sprintf("%s/runs?status=%s", w.URL, opts.Status)
+		} else {
+			runsPath = fmt.Sprintf("%s/runs", w.URL)
+		}
+
 		stdout, _, err = gh.Exec("api", "--cache", defaultApiCacheTime, runsPath, "--jq", ".workflow_runs")
 		if err != nil {
 			return nil, fmt.Errorf("could not call gh: %w", err)
@@ -462,6 +469,7 @@ func parseArgs() (*options, error) {
 
 	repositories := flag.StringSliceP("repos", "r", []string{}, "One or more repository names from the provided org or user")
 	last := flag.StringP("last", "l", "30d", "What period of time to cover in hours (eg 1h) or days (eg 30d). Default: 30d")
+	runStatus := flag.StringP("status", "s", "", "What workflow run status (eg completed, cancelled, failure, success) to query for")
 
 	flag.Parse()
 
@@ -522,6 +530,7 @@ func parseArgs() (*options, error) {
 		Repositories: *repositories,
 		Last:         duration,
 		Selector:     selector,
+		Status:       *runStatus,
 	}, nil
 }
 
