@@ -19,6 +19,9 @@ gh actions-status -l 7d
 # See health for an arbitrary list of repositories within an org
 gh actions-status cli -r "cli,go-gh"
 
+# See workflow runs with 'failure' status for an arbitrary list of repositories within an org
+gh actions-status cli -r "cli,go-gh" -s "failure" 
+
 # See the actions health for all the repositories of a user
 gh actions-status rsese
 ```
